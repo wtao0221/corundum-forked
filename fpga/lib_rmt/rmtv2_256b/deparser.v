@@ -137,7 +137,7 @@ always @(*) begin
 			if (!pkt_fifo_empty && !phv_fifo_empty) begin // both pkt and phv fifo are not empty
 				pkts_tdata_stored_r[0+:C_AXIS_DATA_WIDTH] = pkt_fifo_tdata;
 				pkts_tuser_stored_r[0+:C_AXIS_TUSER_WIDTH] = phv_fifo_out[0+:128]; // first 128b of PHV
-				pkts_tkeep_stored_r[0+:(C_AXIS_DATA_WIDTH/8)] = pkt_fifo_tuser;
+				pkts_tkeep_stored_r[0+:(C_AXIS_DATA_WIDTH/8)] = pkt_fifo_tkeep;
 				pkts_tlast_stored_r[0] = pkt_fifo_tlast;
 				
 				pkt_fifo_rd_en = 1;
