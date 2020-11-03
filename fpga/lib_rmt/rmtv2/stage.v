@@ -106,11 +106,12 @@ key_extract_2 #(
 
 lookup_engine #(
     .C_S_AXIS_DATA_WIDTH(C_S_AXIS_DATA_WIDTH),
-    .C_S_AXIS_DATA_TUSER(C_S_AXIS_DATA_TUSER),
-    .STAGE(STAGE),
+    .C_S_AXIS_TUSER_WIDTH(C_S_AXIS_TUSER_WIDTH),
+    .STAGE_ID(STAGE_ID),
     .PHV_LEN(),
     .KEY_LEN(),
-    .ACT_LEN()
+    .ACT_LEN(),
+    .LOOKUP_ID()
 ) lookup_engine(
     .clk(axis_clk),
     .rst_n(aresetn),
@@ -141,11 +142,10 @@ lookup_engine #(
 );
 
 action_engine #(
-    .C_S_AXIS_DATA_WIDTH(C_S_AXIS_DATA_WIDTH),
-    .C_S_AXIS_DATA_TUSER(C_S_AXIS_DATA_TUSER),
-    .STAGE(STAGE),
+    .STAGE_ID(STAGE_ID),
     .PHV_LEN(),
-    .ACT_LEN()
+    .ACT_LEN(),
+    .ACT_ID()
 )action_engine(
     .clk(axis_clk),
     .rst_n(aresetn),

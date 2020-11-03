@@ -52,7 +52,7 @@ module lookup_engine #(
 wire [3:0]  match_addr;
 wire        match;
 
-wire [ACT_LEN*25-1:0] action_wire;
+wire [ACT_LEN-1:0] action_wire;
 
 
 reg [PHV_LEN-1:0] phv_reg;
@@ -126,26 +126,22 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 
-/****control path for 512b*****/
+/****control path*****/
 wire [7:0]          mod_id; //module ID
 //4'b0 for tcam entry;
+//NOTE: we don't need tcam entry mask
 //4'b2 for action table entry;
 wire [3:0]          resv; //recog between tcam and action
 
 
 reg  [7:0]          c_index_cam; //table index(addr)
+
 reg                 c_wr_en_cam; //enable table write(wena)
-reg [KEY_LEN-1:0]   cam_entry_tmp;
-reg [KEY_LEN-1:0]   cam_mask_tmp;
-reg                 cam_entry_compl_flag;
-reg                 cam_mask_compl_flag;
-reg                 cam_conti_flag;
 
 reg  [7:0]          c_index_act;
 reg                 c_wr_en_act;
-reg  [ACT_LEN-1:0]  act_entry_tmp;
-reg                 entry_compl_flag;
-reg  [9:0]          act_entry_cursor;
+reg  [ACT_LEN-1:0]  act_entry_tmp;             
+reg                 continous_flag;
 
 
 reg [2:0]           c_state;
@@ -159,31 +155,27 @@ reg                                 c_m_axis_tvalid_r;
 reg                                 c_m_axis_tlast_r;
 
 
-localparam IDLE_C = 1,
-           PARSE_C = 2,
-           CAM_TMP_ENTRY = 3,
-           CAM_TMP_MASK = 4,
+localparam IDLE_C = 0,
+           PARSE_C = 1,
+           CAM_TMP_ENTRY = 2,
+           ACT_TMP_ENTRY_WAIT = 3,
+           ACT_TMP_ENTRY_WAIT_2 = 4,
            ACT_TMP_ENTRY = 5;
 
 generate 
     if(C_S_AXIS_DATA_WIDTH == 512) begin
         assign mod_id = c_s_axis_tdata[368+:8];
-        assign resv = c_s_axis_tdata[380+:4];
+        assign resv   = c_s_axis_tdata[380+:4];
         always @(posedge clk or negedge rst_n) begin
             if(~rst_n) begin
                 c_index_cam <= 0;
                 c_wr_en_cam <= 0;
-                cam_entry_tmp <= 0;
-                cam_mask_tmp <= 0;
-                cam_entry_compl_flag <= 0;
-                cam_entry_compl_flag <= 0;
-                cam_conti_flag <= 1'b0;
 
                 c_index_act <= 0;
                 c_wr_en_act <= 0;
 
                 act_entry_tmp <= 0;
-                entry_compl_flag <= 0;
+                continous_flag <= 0;
 
                 c_m_axis_tdata <= 0;
                 c_m_axis_tuser <= 0;
@@ -191,127 +183,118 @@ generate
                 c_m_axis_tvalid <= 0;
                 c_m_axis_tlast <= 0;
 
-                c_m_axis_tdata_r  <= 0;
-                c_m_axis_tuser_r  <= 0;
-                c_m_axis_tkeep_r  <= 0;
-                c_m_axis_tvalid_r <= 0;
-                c_m_axis_tlast_r  <= 0;
-
                 c_state <= IDLE_C;
+
             end
+
             else begin
                 case(c_state)
                     IDLE_C: begin
-                        case({c_s_axis_tvalid, mod_id[7:3], mod_id[2:0], resv})
-                            //TCAM ENTRY
-                            {1, STAGE_ID, LOOKUP_ID, 4'b0}: begin
-                                c_index_cam = c_s_axis_tdata[384+:8];
-                                c_m_axis_tdata <= 0;
-                                c_m_axis_tuser <= 0;
-                                c_m_axis_tkeep <= 0;
-                                c_m_axis_tvalid <= 0;
-                                c_m_axis_tlast <= 0;
-
-                                c_state <= CAM_TMP_ENTRY;
+                        if(c_s_axis_tvalid) begin
+                            if(mod_id[7:3] == STAGE_ID && mod_id[2:0] == LOOKUP_ID) begin
+                                //TCAM entry
+                                if(resv == 4'b0) begin
+                                    c_wr_en_cam <= 1'b1;
+                                    c_index_cam <= c_s_axis_tdata[384+:8];
+                                    c_state <= CAM_TMP_ENTRY;
+                                end
+                                //ACTION entry
+                                else begin
+                                    continous_flag <= 1'b0;
+                                    c_index_act <= c_s_axis_tdata[384+:8];
+                                    c_state <= ACT_TMP_ENTRY_WAIT;
+                                end
                             end
-                            //ACTION ENTRY
-                            {1, STAGE_ID, LOOKUP_ID, 4'b2}: begin
-                                c_m_axis_tdata <= 0;
-                                c_m_axis_tuser <= 0;
-                                c_m_axis_tkeep <= 0;
-                                c_m_axis_tvalid <= 0;
-                                c_m_axis_tlast <= 0;
-                                c_index_act = c_s_axis_tdata[384+:8];
-                                act_entry_tmp[0+:C_S_AXIS_DATA_WIDTH] <= c_s_axis_tdata;
-                                act_entry_cursor <= C_S_AXIS_DATA_WIDTH;
-                                c_state <= ACT_TMP_ENTRY;
-                            end
-                            default: begin
+                            //not for lookup
+                            else begin
                                 c_index_cam <= 0;
                                 c_wr_en_cam <= 0;
-                                cam_entry_tmp <= 0;
-                                cam_mask_tmp <= 0;
-                                cam_entry_compl_flag <= 0;
-                                cam_entry_compl_flag <= 0;
-                                cam_conti_flag <= 1'b0;
 
                                 c_index_act <= 0;
                                 c_wr_en_act <= 0;
 
                                 act_entry_tmp <= 0;
-                                entry_compl_flag <= 0;
-                                c_m_axis_tdata <= c_s_axis_tdata;
-                                c_m_axis_tuser <= c_s_axis_tuser;
-                                c_m_axis_tkeep <= c_s_axis_tkeep;
-                                c_m_axis_tvalid <= c_s_axis_tvalid;
-                                c_m_axis_tlast <= c_s_axis_tlast;
+                                continous_flag <= 0;
+
+                                c_m_axis_tdata <= 0;
+                                c_m_axis_tuser <= 0;
+                                c_m_axis_tkeep <= 0;
+                                c_m_axis_tvalid <= 0;
+                                c_m_axis_tlast <= 0;
 
                                 c_state <= IDLE_C;
                             end
-                        endcase 
+                        end
+                        //stay halt
+                        else begin
+                            c_index_cam <= 0;
+                            c_wr_en_cam <= 0;
+
+                            c_index_act <= 0;
+                            c_wr_en_act <= 0;
+
+                            act_entry_tmp <= 0;
+                            continous_flag <= 0;
+
+                            c_m_axis_tdata <= 0;
+                            c_m_axis_tuser <= 0;
+                            c_m_axis_tkeep <= 0;
+                            c_m_axis_tvalid <= 0;
+                            c_m_axis_tlast <= 0;
+
+                            c_state <= IDLE_C;
+                        end
                     end
 
-                    //write cam entry to entry_tmp
                     CAM_TMP_ENTRY: begin
-                        c_wr_en_cam <= 1'b0;
-                        if(cam_conti_flag) begin
-                            c_index_cam <= c_index_cam + 1;
+                        if(c_s_axis_tlast) begin
+                            c_wr_en_cam <= 1'b0;
+                            c_state <= IDLE_C;
                         end
                         else begin
-                            c_index_cam <= c_index_cam;
-                        end
-                        if(c_s_axis_tvalid) begin
-                            cam_entry_tmp <= c_s_axis_tdata[196:0];
-                            cam_entry_compl_flag <= 1'b1;
-                            c_state <= CAM_TMP_MASK;
-                        end
-                        else c_state <= IDLE_C;
-
-                    end
-                    CAM_TMP_MASK: begin
-                        if(c_s_axis_tvalid) begin
-                            cam_mask_tmp <= c_s_axis_tdata[196:0];
-                            cam_mask_compl_flag <= 1'b1; 
-                            cam_entry_compl_flag <= 1'b0;
-                            //ready to write
                             c_wr_en_cam <= 1'b1;
-                            //whether to flush or finished?
-                            if(c_s_axis_tlast == 0) begin
-                                c_state <= CAM_TMP_ENTRY;
-                                cam_conti_flag <= 1'b1;
-                            end 
-                            else c_state <= IDLE_C;
+                            c_index_cam <= c_index_cam + 8'b1;
+                            c_state <= CAM_TMP_ENTRY;
                         end
                     end
+
+                    ACT_TMP_ENTRY_WAIT: begin
+                        c_m_axis_tvalid_r <= 1'b0;
+                        c_m_axis_tlast_r <= 1'b0;
+                        //flush the whole table
+                        if(c_s_axis_tvalid && ~c_s_axis_tlast) begin
+                            if (continous_flag)   c_index_act <= c_index_act + 8'b1;
+                            else                  c_index_act <= c_index_act;
+                            act_entry_tmp[511:0] <= c_s_axis_tdata;
+                            c_wr_en_act <= 1'b0;
+                            c_state <= ACT_TMP_ENTRY;
+                        end
+                        else begin
+                            c_wr_en_act <= 1'b0;
+                            c_state <= IDLE_C;
+                        end
+                    end
+
                     ACT_TMP_ENTRY: begin
-                        //write RAM
-                        if((act_entry_cursor+C_S_AXIS_DATA_WIDTH) >= ACT_LEN) begin
-                            entry_compl_flag <= 1'b1;
+                        if(c_s_axis_tvalid) begin
+                            act_entry_tmp[624:512] <= c_s_axis_tdata[0+:113];
                             c_wr_en_act <= 1'b1;
-                            act_entry_tmp[act_entry_cursor +: (ACT_LEN-act_entry_cursor)] <= 
-                                c_s_axis_tdata[0+:(ACT_LEN-act_entry_cursor)];
-                            if(c_s_axis_tlast) begin
-                                c_state <= IDLE_C;
-                            end
+                            if(c_s_axis_tlast)   c_state <= IDLE_C;
                             else begin
-                                act_entry_cursor <= 10'b0;
-                                c_state <= ACT_TMP_ENTRY;
+                                continous_flag <= 1'b1;
+                                c_state <= ACT_TMP_ENTRY_WAIT;
                             end
                         end
                         else begin
-                            act_entry_tmp[act_entry_cursor +: C_S_AXIS_DATA_WIDTH] <= c_s_axis_tdata;
-                            //this is a flush packet
-                            if(act_entry_cursor == 0) begin
-                                c_index_act <= c_index_act + 1;
-                            end
+                            c_state <= IDLE_C;
                         end
                     end
-                endcase
 
+                endcase
             end
         end
     end
-
+    //NOTE: data width is 256b
     else begin
         assign mod_id = c_s_axis_tdata[112+:8];
         assign resv = c_s_axis_tdata[124+:4];
@@ -319,17 +302,12 @@ generate
             if(~rst_n) begin
                 c_index_cam <= 0;
                 c_wr_en_cam <= 0;
-                cam_entry_tmp <= 0;
-                cam_mask_tmp <= 0;
-                cam_entry_compl_flag <= 0;
-                cam_entry_compl_flag <= 0;
-                cam_conti_flag <= 1'b0;
 
                 c_index_act <= 0;
                 c_wr_en_act <= 0;
 
                 act_entry_tmp <= 0;
-                entry_compl_flag <= 0;
+                continous_flag <= 0;
 
                 c_m_axis_tdata <= 0;
                 c_m_axis_tuser <= 0;
@@ -337,7 +315,14 @@ generate
                 c_m_axis_tvalid <= 0;
                 c_m_axis_tlast <= 0;
 
+                c_m_axis_tdata_r <= 0;
+                c_m_axis_tuser_r <= 0;
+                c_m_axis_tkeep_r <= 0;
+                c_m_axis_tvalid_r <= 0;
+                c_m_axis_tlast_r <= 0;
+
                 c_state <= IDLE_C;
+
             end
             else begin
                 case(c_state)
@@ -347,9 +332,7 @@ generate
                         c_m_axis_tkeep <= c_m_axis_tkeep_r;
                         c_m_axis_tvalid <= c_m_axis_tvalid_r;
                         c_m_axis_tlast <= c_m_axis_tlast_r;
-
                         if(c_s_axis_tvalid) begin
-
                             c_m_axis_tdata_r <= c_s_axis_tdata;
                             c_m_axis_tuser_r <= c_s_axis_tuser;
                             c_m_axis_tkeep_r <= c_s_axis_tkeep;
@@ -358,133 +341,120 @@ generate
 
                             c_state <= PARSE_C;
                         end
-                        
                         else begin
-                            c_wr_en_off <= 1'b0;
-                            c_wr_en_mask <= 1'b0;
-                            c_index <= 4'b0; 
+                            c_wr_en_cam <= 1'b0;
+                            c_wr_en_act <= 1'b0;
+                            c_index_act <= 8'b0; 
+                            c_index_cam <= 8'b0;
+                            continous_flag <= 1'b0;
+
                             c_m_axis_tvalid_r <= 1'b0;
+                            c_m_axis_tlast_r <= 1'b0;
 
                             c_state <= IDLE_C;
                         end
                     end
                     PARSE_C: begin
-                        case({mod_id[7:3], mod_id[2:0], resv})
-                            //TCAM ENTRY
-                            {1, STAGE_ID, LOOKUP_ID, 4'b0}: begin
-                                c_index_cam = c_s_axis_tdata[384+:8];
-                                c_m_axis_tdata <= 0;
-                                c_m_axis_tuser <= 0;
-                                c_m_axis_tkeep <= 0;
-                                c_m_axis_tvalid <= 0;
-                                c_m_axis_tlast <= 0;
+                        if(mod_id[7:3] == STAGE_ID && mod_id[2:0] == LOOKUP_ID) begin
+                            c_m_axis_tdata <= 0;
+                            c_m_axis_tuser <= 0;
+                            c_m_axis_tkeep <= 0;
+                            c_m_axis_tvalid <= 0;
+                            c_m_axis_tlast <= 0;
 
+                            if(resv == 4'b0) begin
+                                c_index_cam <= c_s_axis_tdata[128+:8];
+                                c_wr_en_cam <= 1'b1;
                                 c_state <= CAM_TMP_ENTRY;
                             end
-                            //ACTION ENTRY
-                            {1, STAGE_ID, LOOKUP_ID, 4'b2}: begin
-                                c_m_axis_tdata <= 0;
-                                c_m_axis_tuser <= 0;
-                                c_m_axis_tkeep <= 0;
-                                c_m_axis_tvalid <= 0;
-                                c_m_axis_tlast <= 0;
-                                c_index_act = c_s_axis_tdata[384+:8];
-                                act_entry_tmp[0+:C_S_AXIS_DATA_WIDTH] <= c_s_axis_tdata;
-                                act_entry_cursor <= C_S_AXIS_DATA_WIDTH;
-                                c_state <= ACT_TMP_ENTRY;
+                            else begin
+                                c_index_act <= c_s_axis_tdata[128+:8];
+                                c_wr_en_act <= 1'b0;
+                                c_state <= ACT_TMP_ENTRY_WAIT;
                             end
-                            default: begin
-                                c_index_cam <= 0;
-                                c_wr_en_cam <= 0;
-                                cam_entry_tmp <= 0;
-                                cam_mask_tmp <= 0;
-                                cam_entry_compl_flag <= 0;
-                                cam_entry_compl_flag <= 0;
-                                cam_conti_flag <= 1'b0;
+                        end
 
-                                c_index_act <= 0;
-                                c_wr_en_act <= 0;
-
-                                act_entry_tmp <= 0;
-                                entry_compl_flag <= 0;
-                                c_m_axis_tdata <= c_m_axis_tdata_r;
-                                c_m_axis_tuser <= c_m_axis_tuser_r;
-                                c_m_axis_tkeep <= c_m_axis_tkeep_r;
-                                c_m_axis_tvalid <= c_m_axis_tvalid_r;
-                                c_m_axis_tlast <= c_m_axis_tlast_r;
-                                if(c_s_axis_tvalid) begin
-                                    c_m_axis_tdata_r <= c_s_axis_tdata;
-                                    c_m_axis_tuser_r <= c_s_axis_tuser;
-                                    c_m_axis_tkeep_r <= c_s_axis_tkeep;
-                                    c_m_axis_tvalid_r <= c_s_axis_tvalid;
-                                    c_m_axis_tlast_r <= c_s_axis_tlast;
-                                end
-                                else begin
-                                    c_state <= IDLE_C;
-                                    c_m_axis_tvalid_r <= 0;
-                                end
-                                    c_state <= IDLE_C;
+                        else begin
+                            c_m_axis_tdata <= c_m_axis_tdata_r;
+                            c_m_axis_tuser <= c_m_axis_tuser_r;
+                            c_m_axis_tkeep <= c_m_axis_tkeep_r;
+                            c_m_axis_tvalid <= c_m_axis_tvalid_r;
+                            c_m_axis_tlast <= c_m_axis_tlast_r;
+                            if(c_s_axis_tvalid) begin
+                                c_m_axis_tdata_r <= c_s_axis_tdata;
+                                c_m_axis_tuser_r <= c_s_axis_tuser;
+                                c_m_axis_tkeep_r <= c_s_axis_tkeep;
+                                c_m_axis_tvalid_r <= c_s_axis_tvalid;
+                                c_m_axis_tlast_r <= c_s_axis_tlast;
                             end
-                        endcase 
+                            else begin
+                                c_state <= IDLE_C;
+                                c_m_axis_tvalid_r <= 1'b0;
+                                c_m_axis_tlast_r <= 1'b0;
+                            end
+                        end
+
                     end
 
-                    //write cam entry to entry_tmp
                     CAM_TMP_ENTRY: begin
-                        c_wr_en_cam <= 1'b0;
-                        if(cam_conti_flag) begin
-                            c_index_cam <= c_index_cam + 1;
+                        c_m_axis_tvalid_r <= 1'b0;
+                        c_m_axis_tlast_r <= 1'b0;
+                        if(c_s_axis_tlast || ~c_s_axis_tvalid) begin
+                            c_wr_en_cam <= 1'b0;
+                            c_index_cam <= 8'b0;
+                            c_state <= IDLE_C;
                         end
                         else begin
-                            c_index_cam <= c_index_cam;
-                        end
-                        if(c_s_axis_tvalid) begin
-                            cam_entry_tmp <= c_s_axis_tdata[196:0];
-                            cam_entry_compl_flag <= 1'b1;
-                            c_state <= CAM_TMP_MASK;
-                        end
-                        else c_state <= IDLE_C;
-
-                    end
-                    CAM_TMP_MASK: begin
-                        if(c_s_axis_tvalid) begin
-                            cam_mask_tmp <= c_s_axis_tdata[196:0];
-                            cam_mask_compl_flag <= 1'b1; 
-                            cam_entry_compl_flag <= 1'b0;
-                            //ready to write
                             c_wr_en_cam <= 1'b1;
-                            //whether to flush or finished?
-                            if(c_s_axis_tlast == 0) begin
-                                c_state <= CAM_TMP_ENTRY;
-                                cam_conti_flag <= 1'b1;
-                            end 
-                            else c_state <= IDLE_C;
+                            c_index_cam <= c_index_cam + 8'b1;
+                            c_state <= CAM_TMP_ENTRY;
                         end
                     end
+
+                    ACT_TMP_ENTRY_WAIT: begin
+                        c_m_axis_tvalid_r <= 1'b0;
+                        c_m_axis_tlast_r <= 1'b0;
+                        c_wr_en_act <= 1'b0;
+                        if(c_s_axis_tvalid && ~c_s_axis_tlast) begin
+                            act_entry_tmp[255:0] <= c_s_axis_tdata;
+                            if(continous_flag) c_index_act <= c_index_act + 8'b1;
+                            c_state <= ACT_TMP_ENTRY_WAIT_2;
+                        end
+                        else begin
+                            c_state <= IDLE_C;
+                        end
+                    end
+
+                    ACT_TMP_ENTRY_WAIT_2: begin
+                        if(c_s_axis_tvalid && ~c_s_axis_tlast) begin
+                            act_entry_tmp[511:256] <= c_s_axis_tdata;
+                            c_state <= ACT_TMP_ENTRY;
+                        end
+                        else begin
+                            c_state <= IDLE_C;
+                        end
+                    end
+
                     ACT_TMP_ENTRY: begin
-                        //write RAM
-                        if((act_entry_cursor+C_S_AXIS_DATA_WIDTH) >= ACT_LEN) begin
-                            entry_compl_flag <= 1'b1;
+                        if(c_s_axis_tvalid) begin
+                            act_entry_tmp[624:512] <= c_s_axis_tdata[0+:113];
                             c_wr_en_act <= 1'b1;
-                            act_entry_tmp[act_entry_cursor +: (ACT_LEN-act_entry_cursor)] <= 
-                                c_s_axis_tdata[0+:(ACT_LEN-act_entry_cursor)];
                             if(c_s_axis_tlast) begin
+                                continous_flag <= 1'b0;
                                 c_state <= IDLE_C;
                             end
                             else begin
-                                act_entry_cursor <= 10'b0;
-                                c_state <= ACT_TMP_ENTRY;
+                                c_state <= ACT_TMP_ENTRY_WAIT;
+                                continous_flag <= 1'b1;
                             end
                         end
                         else begin
-                            act_entry_tmp[act_entry_cursor +: C_S_AXIS_DATA_WIDTH] <= c_s_axis_tdata;
-                            //this is a flush packet
-                            if(act_entry_cursor == 0) begin
-                                c_index_act <= c_index_act + 1;
-                            end
+                            c_state <= IDLE_C;
                         end
-                    end
-                endcase
 
+                    end
+
+                endcase
             end
         end
     end
@@ -520,9 +490,9 @@ cam_0
 	//.DIN				(lookup_din),
 
     .WE                 (c_wr_en_cam),
-    .WR_ADDR            (c_index_cam),
-    .DATA_MASK          (act_entry_tmp),  //TODO do we need ternary matching?
-    .DIN                (act_entry_tmp),
+    .WR_ADDR            (c_index_cam[3:0]),
+    .DATA_MASK          (),  //TODO do we need ternary matching?
+    .DIN                (c_s_axis_tdata[196:0]),
 	.EN					(1'b1)
 );
 
@@ -535,7 +505,7 @@ cam_0
 blk_mem_gen_1
 act_ram_625w_16d
 (
-    .addra(c_wr_en_act),
+    .addra(c_index_act[3:0]),
     .clka(clk),
     .dina(act_entry_tmp),
     .ena(1'b1),
