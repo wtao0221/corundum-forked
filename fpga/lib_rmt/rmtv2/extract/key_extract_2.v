@@ -274,7 +274,7 @@ generate
             if(~rst_n) begin
                 c_wr_en_off <= 1'b0;
                 c_wr_en_mask <= 1'b0;
-                c_index <= 4'b0;
+                c_index <= 8'b0;
         
                 c_m_axis_tdata <= 0;
                 c_m_axis_tuser <= 0;
@@ -311,7 +311,7 @@ generate
                         else begin
                             c_wr_en_off <= 1'b0;
                             c_wr_en_mask <= 1'b0;
-                            c_index <= 4'b0; 
+                            c_index <= 8'b0; 
         
                             c_m_axis_tdata <= c_s_axis_tdata;
                             c_m_axis_tuser <= c_s_axis_tuser;
@@ -326,31 +326,31 @@ generate
                     WRITE_OFF_C: begin
                         if(c_s_axis_tlast) begin
                             c_wr_en_off <= 1'b0;
-                            c_index <= 4'b0;
+                            c_index <= 8'b0;
                             c_state <= IDLE_C;
                         end
                         else begin
                             c_wr_en_off <= 1'b1;
-                            c_index <= c_index + 4'b1;
+                            c_index <= c_index + 8'b1;
                             c_state <= WRITE_OFF_C;
                         end
                     end
                     WRITE_MASK_C: begin
                         if(c_s_axis_tlast) begin
                             c_wr_en_mask <= 1'b0;
-                            c_index <= 4'b0;
+                            c_index <= 8'b0;
                             c_state <= IDLE_C;
                         end
                         else begin
                             c_wr_en_mask <= 1'b1;
-                            c_index <= c_index + 4'b1;
+                            c_index <= c_index + 8'b1;
                             c_state <= WRITE_MASK_C;
                         end
                     end
                     default: begin
                         c_wr_en_off <= 1'b0;
                         c_wr_en_mask <= 1'b0;
-                        c_index <= 4'b0; 
+                        c_index <= 8'b0; 
                         c_m_axis_tdata <= c_s_axis_tdata;
                         c_m_axis_tuser <= c_s_axis_tuser;
                         c_m_axis_tkeep <= c_s_axis_tkeep;
@@ -372,7 +372,7 @@ generate
             if(~rst_n) begin
                 c_wr_en_off <= 1'b0;
                 c_wr_en_mask <= 1'b0;
-                c_index <= 4'b0;
+                c_index <= 8'b0;
 
                 c_m_axis_tdata <= 0;
                 c_m_axis_tuser <= 0;
@@ -413,7 +413,11 @@ generate
                         else begin
                             c_wr_en_off <= 1'b0;
                             c_wr_en_mask <= 1'b0;
+<<<<<<< HEAD
+                            c_index <= 8'b0; 
+=======
                             c_index <= 4'b0; 
+>>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_m_axis_tvalid_r <= 1'b0;
                             c_m_axis_tlast_r <= 1'b0;
 
@@ -467,12 +471,20 @@ generate
                         c_m_axis_tvalid_r <= 1'b0;
                         if(c_s_axis_tlast) begin
                             c_wr_en_off <= 1'b0;
+<<<<<<< HEAD
+                            c_index <= 8'b0;
+=======
                             c_index <= 4'b0;
+>>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= IDLE_C;
                         end
                         else begin
                             c_wr_en_off <= 1'b1;
+<<<<<<< HEAD
+                            c_index <= c_index + 8'b1;
+=======
                             c_index <= c_index + 4'b1;
+>>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= WRITE_OFF_C;
                         end
                     end
@@ -481,12 +493,20 @@ generate
                         c_m_axis_tvalid_r <= 1'b0;
                         if(c_s_axis_tlast) begin
                             c_wr_en_mask <= 1'b0;
+<<<<<<< HEAD
+                            c_index <= 8'b0;
+=======
                             c_index <= 4'b0;
+>>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= IDLE_C;
                         end
                         else begin
                             c_wr_en_mask <= 1'b1;
+<<<<<<< HEAD
+                            c_index <= c_index + 8'b1;
+=======
                             c_index <= c_index + 4'b1;
+>>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= WRITE_MASK_C;
                         end
                     end

@@ -251,7 +251,9 @@ phv_parser
 
 
 stage #(
-	.STAGE(0)
+    .C_S_AXIS_DATA_WIDTH(512),
+    .C_S_AXIS_TUSER_WIDTH(128),
+    .STAGE_ID(0)  //valid: 0-4
 )
 stage0
 (
@@ -281,9 +283,10 @@ stage0
 
 
 deparser #(
-	.C_AXIS_DATA_WIDTH(C_S_AXIS_DATA_WIDTH),
-	.C_AXIS_TUSER_WIDTH(),
-	.C_PKT_VEC_WIDTH()
+	.C_S_AXIS_DATA_WIDTH(C_S_AXIS_DATA_WIDTH),
+	.C_S_AXIS_TUSER_WIDTH(C_S_AXIS_TUSER_WIDTH),
+	.C_PKT_VEC_WIDTH(),
+    .DEPARSER_ID()
 )
 phv_deparser (
 	.clk					(clk),
