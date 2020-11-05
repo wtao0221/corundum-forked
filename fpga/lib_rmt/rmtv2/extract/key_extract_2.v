@@ -361,6 +361,43 @@ generate
         
             end
         end
+//ram for key extract
+//blk_mem_gen_2 act_ram_18w_16d
+// blk_mem_gen_2 #(
+// 	.C_INIT_FILE_NAME	("./key_extract.mif"),
+// 	.C_LOAD_INIT_FILE	(1)
+// )
+blk_mem_gen_2
+key_ram_18w_16d
+(
+    .addra(c_index[3:0]),
+    .clka(clk),
+    .dina(c_s_axis_tdata[17:0]),
+    .ena(1'b1),
+    .wea(c_wr_en_off),
+
+    //only [3:0] is needed for addressing
+	.addrb(vlan_id[7:4]), // TODO: we may need to change this logic due to big/little endian
+    .clkb(clk),
+    .doutb(key_offset),
+    .enb(1'b1)
+);
+
+blk_mem_gen_3
+mask_ram_197w_16d
+(
+    .addra(c_index[3:0]),
+    .clka(clk),
+    .dina(c_s_axis_tdata[196:0]),
+    .ena(1'b1),
+    .wea(c_wr_en_mask),
+
+    //only [3:0] is needed for addressing
+	.addrb(vlan_id[7:4]), // TODO: we may need to change this logic due to big/little endian
+    .clkb(clk),
+    .doutb(key_mask_out_w),
+    .enb(1'b1)
+);
     end
 
     else if(C_S_AXIS_DATA_WIDTH == 256) begin
@@ -368,6 +405,40 @@ generate
         //4'b0 for key offset
         //4'b1 for key mask
         assign resv = c_s_axis_tdata[124+:4];
+		wire[C_S_AXIS_DATA_WIDTH-1:0] c_s_axis_tdata_swapped;
+		assign c_s_axis_tdata_swapped = {	c_s_axis_tdata[0+:8],
+											c_s_axis_tdata[8+:8],
+											c_s_axis_tdata[16+:8],
+											c_s_axis_tdata[24+:8],
+											c_s_axis_tdata[32+:8],
+											c_s_axis_tdata[40+:8],
+											c_s_axis_tdata[48+:8],
+											c_s_axis_tdata[56+:8],
+											c_s_axis_tdata[64+:8],
+											c_s_axis_tdata[72+:8],
+											c_s_axis_tdata[80+:8],
+											c_s_axis_tdata[88+:8],
+											c_s_axis_tdata[96+:8],
+											c_s_axis_tdata[104+:8],
+											c_s_axis_tdata[112+:8],
+											c_s_axis_tdata[120+:8],
+											c_s_axis_tdata[128+:8],
+											c_s_axis_tdata[136+:8],
+											c_s_axis_tdata[144+:8],
+											c_s_axis_tdata[152+:8],
+											c_s_axis_tdata[160+:8],
+											c_s_axis_tdata[168+:8],
+											c_s_axis_tdata[176+:8],
+											c_s_axis_tdata[184+:8],
+											c_s_axis_tdata[192+:8],
+											c_s_axis_tdata[200+:8],
+											c_s_axis_tdata[208+:8],
+											c_s_axis_tdata[216+:8],
+											c_s_axis_tdata[224+:8],
+											c_s_axis_tdata[232+:8],
+											c_s_axis_tdata[240+:8],
+											c_s_axis_tdata[248+:8]};
+
         always @(posedge clk or negedge rst_n) begin
             if(~rst_n) begin
                 c_wr_en_off <= 1'b0;
@@ -413,11 +484,7 @@ generate
                         else begin
                             c_wr_en_off <= 1'b0;
                             c_wr_en_mask <= 1'b0;
-<<<<<<< HEAD
                             c_index <= 8'b0; 
-=======
-                            c_index <= 4'b0; 
->>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_m_axis_tvalid_r <= 1'b0;
                             c_m_axis_tlast_r <= 1'b0;
 
@@ -471,20 +538,12 @@ generate
                         c_m_axis_tvalid_r <= 1'b0;
                         if(c_s_axis_tlast) begin
                             c_wr_en_off <= 1'b0;
-<<<<<<< HEAD
                             c_index <= 8'b0;
-=======
-                            c_index <= 4'b0;
->>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= IDLE_C;
                         end
                         else begin
                             c_wr_en_off <= 1'b1;
-<<<<<<< HEAD
                             c_index <= c_index + 8'b1;
-=======
-                            c_index <= c_index + 4'b1;
->>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= WRITE_OFF_C;
                         end
                     end
@@ -493,20 +552,12 @@ generate
                         c_m_axis_tvalid_r <= 1'b0;
                         if(c_s_axis_tlast) begin
                             c_wr_en_mask <= 1'b0;
-<<<<<<< HEAD
                             c_index <= 8'b0;
-=======
-                            c_index <= 4'b0;
->>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= IDLE_C;
                         end
                         else begin
                             c_wr_en_mask <= 1'b1;
-<<<<<<< HEAD
                             c_index <= c_index + 8'b1;
-=======
-                            c_index <= c_index + 4'b1;
->>>>>>> e0465a8919580d2947f2051b4710acc105537d73
                             c_state <= WRITE_MASK_C;
                         end
                     end
@@ -514,8 +565,6 @@ generate
                 endcase
             end
         end
-    end
-endgenerate
 
 //ram for key extract
 //blk_mem_gen_2 act_ram_18w_16d
@@ -528,7 +577,7 @@ key_ram_18w_16d
 (
     .addra(c_index[3:0]),
     .clka(clk),
-    .dina(c_s_axis_tdata[17:0]),
+    .dina(c_s_axis_tdata_swapped[238+:18]),
     .ena(1'b1),
     .wea(c_wr_en_off),
 
@@ -544,7 +593,7 @@ mask_ram_197w_16d
 (
     .addra(c_index[3:0]),
     .clka(clk),
-    .dina(c_s_axis_tdata[196:0]),
+    .dina(c_s_axis_tdata_swapped[59+:197]),
     .ena(1'b1),
     .wea(c_wr_en_mask),
 
@@ -554,5 +603,8 @@ mask_ram_197w_16d
     .doutb(key_mask_out_w),
     .enb(1'b1)
 );
+    end
+endgenerate
+
 
 endmodule

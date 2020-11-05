@@ -293,11 +293,95 @@ generate
                 endcase
             end
         end
+// tcam1 for lookup
+
+cam_top # ( 
+	.C_DEPTH			(16),
+	// .C_WIDTH			(256),
+	.C_WIDTH			(197),
+	.C_MEM_INIT			(1),
+	.C_MEM_INIT_FILE	("./cam_init_file.mif")
+)
+//TODO remember to change it back.
+cam_0
+(
+	.CLK				(clk),
+	.CMP_DIN			(extract_key),
+	.CMP_DATA_MASK		(extract_mask),
+	.BUSY				(),
+	.MATCH				(match),
+	.MATCH_ADDR			(match_addr),
+
+	//.WE				(lookup_din_en),
+	//.WR_ADDR			(lookup_din_addr),
+	//.DATA_MASK		(lookup_din_mask),  
+	//.DIN				(lookup_din),
+
+    .WE                 (c_wr_en_cam),
+    .WR_ADDR            (c_index_cam[3:0]),
+    .DATA_MASK          (),  //TODO do we need ternary matching?
+    .DIN                (c_s_axis_tdata[196:0]),
+	.EN					(1'b1)
+);
+
+
+//ram for action
+// blk_mem_gen_1 #(
+// 	.C_INIT_FILE_NAME	("./llup.mif"),
+// 	.C_LOAD_INIT_FILE	(1)
+// )
+blk_mem_gen_1
+act_ram_625w_16d
+(
+    .addra(c_index_act[3:0]),
+    .clka(clk),
+    .dina(act_entry_tmp),
+    .ena(1'b1),
+    .wea(c_wr_en_act),
+
+    .addrb(match_addr),
+    .clkb(clk),
+    .doutb(action_wire),
+    .enb(match)
+);
     end
     //NOTE: data width is 256b
     else begin
         assign mod_id = c_s_axis_tdata[112+:8];
         assign resv = c_s_axis_tdata[124+:4];
+		wire[C_S_AXIS_DATA_WIDTH-1:0] c_s_axis_tdata_swapped;
+		assign c_s_axis_tdata_swapped = {	c_s_axis_tdata[0+:8],
+											c_s_axis_tdata[8+:8],
+											c_s_axis_tdata[16+:8],
+											c_s_axis_tdata[24+:8],
+											c_s_axis_tdata[32+:8],
+											c_s_axis_tdata[40+:8],
+											c_s_axis_tdata[48+:8],
+											c_s_axis_tdata[56+:8],
+											c_s_axis_tdata[64+:8],
+											c_s_axis_tdata[72+:8],
+											c_s_axis_tdata[80+:8],
+											c_s_axis_tdata[88+:8],
+											c_s_axis_tdata[96+:8],
+											c_s_axis_tdata[104+:8],
+											c_s_axis_tdata[112+:8],
+											c_s_axis_tdata[120+:8],
+											c_s_axis_tdata[128+:8],
+											c_s_axis_tdata[136+:8],
+											c_s_axis_tdata[144+:8],
+											c_s_axis_tdata[152+:8],
+											c_s_axis_tdata[160+:8],
+											c_s_axis_tdata[168+:8],
+											c_s_axis_tdata[176+:8],
+											c_s_axis_tdata[184+:8],
+											c_s_axis_tdata[192+:8],
+											c_s_axis_tdata[200+:8],
+											c_s_axis_tdata[208+:8],
+											c_s_axis_tdata[216+:8],
+											c_s_axis_tdata[224+:8],
+											c_s_axis_tdata[232+:8],
+											c_s_axis_tdata[240+:8],
+											c_s_axis_tdata[248+:8]};
         always @(posedge clk or negedge rst_n) begin
             if(~rst_n) begin
                 c_index_cam <= 0;
@@ -416,7 +500,7 @@ generate
                         c_m_axis_tlast_r <= 1'b0;
                         c_wr_en_act <= 1'b0;
                         if(c_s_axis_tvalid && ~c_s_axis_tlast) begin
-                            act_entry_tmp[255:0] <= c_s_axis_tdata;
+                            act_entry_tmp[369+:256] <= c_s_axis_tdata_swapped;
                             if(continous_flag) c_index_act <= c_index_act + 8'b1;
                             c_state <= ACT_TMP_ENTRY_WAIT_2;
                         end
@@ -427,7 +511,7 @@ generate
 
                     ACT_TMP_ENTRY_WAIT_2: begin
                         if(c_s_axis_tvalid && ~c_s_axis_tlast) begin
-                            act_entry_tmp[511:256] <= c_s_axis_tdata;
+                            act_entry_tmp[113+:256] <= c_s_axis_tdata_swapped;
                             c_state <= ACT_TMP_ENTRY;
                         end
                         else begin
@@ -437,7 +521,7 @@ generate
 
                     ACT_TMP_ENTRY: begin
                         if(c_s_axis_tvalid) begin
-                            act_entry_tmp[624:512] <= c_s_axis_tdata[0+:113];
+                            act_entry_tmp[0+:113] <= c_s_axis_tdata_swapped[143+:113];
                             c_wr_en_act <= 1'b1;
                             if(c_s_axis_tlast) begin
                                 continous_flag <= 1'b0;
@@ -457,14 +541,6 @@ generate
                 endcase
             end
         end
-    end
-
-endgenerate
-
-
-
-
-
 // tcam1 for lookup
 
 cam_top # ( 
@@ -492,7 +568,7 @@ cam_0
     .WE                 (c_wr_en_cam),
     .WR_ADDR            (c_index_cam[3:0]),
     .DATA_MASK          (),  //TODO do we need ternary matching?
-    .DIN                (c_s_axis_tdata[196:0]),
+    .DIN                (c_s_axis_tdata_swapped[59+:197]),
 	.EN					(1'b1)
 );
 
@@ -516,5 +592,8 @@ act_ram_625w_16d
     .doutb(action_wire),
     .enb(match)
 );
+    end
+
+endgenerate
 
 endmodule

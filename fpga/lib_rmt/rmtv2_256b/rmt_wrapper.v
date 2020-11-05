@@ -97,6 +97,25 @@ wire										s_axis_tvalid_f;
 wire										s_axis_tready_f;
 wire										s_axis_tlast_f;
 
+//NOTE: filter control packets from data packets.
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_1;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_1;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_1;
+wire										ctrl_s_axis_tvalid_1;
+wire										ctrl_s_axis_tlast_1;
+
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_2;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_2;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_2;
+wire 										ctrl_s_axis_tvalid_2;
+wire 										ctrl_s_axis_tlast_2;
+
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_3;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_3;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_3;
+wire 										ctrl_s_axis_tvalid_3;
+wire 										ctrl_s_axis_tlast_3;
+
 assign s_axis_tready_f = !pkt_fifo_nearly_full;
 
 pkt_filter #(
@@ -121,7 +140,13 @@ pkt_filter #(
 	.m_axis_tuser(s_axis_tuser_f),
 	.m_axis_tvalid(s_axis_tvalid_f),
 	.m_axis_tready(s_axis_tready_f),
-	.m_axis_tlast(s_axis_tlast_f)
+	.m_axis_tlast(s_axis_tlast_f),
+
+	.ctrl_m_axis_tdata (ctrl_s_axis_tdata_1),
+	.ctrl_m_axis_tuser (ctrl_s_axis_tuser_1),
+	.ctrl_m_axis_tkeep (ctrl_s_axis_tkeep_1),
+	.ctrl_m_axis_tlast (ctrl_s_axis_tlast_1),
+	.ctrl_m_axis_tvalid (ctrl_s_axis_tvalid_1)
 );
 
 fallthrough_small_fifo #(
@@ -211,11 +236,25 @@ phv_parser
 
 	// output
 	.parser_valid	(stg0_phv_in_valid),
-	.pkt_hdr_vec	(stg0_phv_in)
+	.pkt_hdr_vec	(stg0_phv_in),
+
+	// control path
+    .ctrl_s_axis_tdata(ctrl_s_axis_tdata_1),
+	.ctrl_s_axis_tuser(ctrl_s_axis_tuser_1),
+	.ctrl_s_axis_tkeep(ctrl_s_axis_tkeep_1),
+	.ctrl_s_axis_tlast(ctrl_s_axis_tlast_1),
+	.ctrl_s_axis_tvalid(ctrl_s_axis_tvalid_1),
+
+    .ctrl_m_axis_tdata(ctrl_s_axis_tdata_2),
+	.ctrl_m_axis_tuser(ctrl_s_axis_tuser_2),
+	.ctrl_m_axis_tkeep(ctrl_s_axis_tkeep_2),
+	.ctrl_m_axis_tlast(ctrl_s_axis_tlast_2),
+	.ctrl_m_axis_tvalid(ctrl_s_axis_tvalid_2)
 );
 
 stage #(
-	.STAGE(0)
+	.C_S_AXIS_DATA_WIDTH(256),
+	.STAGE_ID(0)
 )
 stage0
 (
@@ -227,7 +266,20 @@ stage0
     .phv_in_valid			(stg0_phv_in_valid_w),
 	// output
     .phv_out				(stg0_phv_out),
-    .phv_out_valid			(stg0_phv_out_valid)
+    .phv_out_valid			(stg0_phv_out_valid),
+
+	// control path
+    .c_s_axis_tdata(ctrl_s_axis_tdata_2),
+	.c_s_axis_tuser(ctrl_s_axis_tuser_2),
+	.c_s_axis_tkeep(ctrl_s_axis_tkeep_2),
+	.c_s_axis_tlast(ctrl_s_axis_tlast_2),
+	.c_s_axis_tvalid(ctrl_s_axis_tvalid_2),
+
+    .c_m_axis_tdata(ctrl_s_axis_tdata_3),
+	.c_m_axis_tuser(ctrl_s_axis_tuser_3),
+	.c_m_axis_tkeep(ctrl_s_axis_tkeep_3),
+	.c_m_axis_tlast(ctrl_s_axis_tlast_3),
+	.c_m_axis_tvalid(ctrl_s_axis_tvalid_3)
 );
 
 
@@ -259,7 +311,14 @@ phv_deparser (
 	.depar_out_tvalid		(m_axis_tvalid),
 	.depar_out_tlast		(m_axis_tlast),
 	// input
-	.depar_out_tready		(m_axis_tready)
+	.depar_out_tready		(m_axis_tready),
+
+	// control path
+	.ctrl_s_axis_tdata(ctrl_s_axis_tdata_3),
+	.ctrl_s_axis_tuser(ctrl_s_axis_tuser_3),
+	.ctrl_s_axis_tkeep(ctrl_s_axis_tkeep_3),
+	.ctrl_s_axis_tlast(ctrl_s_axis_tlast_3),
+	.ctrl_s_axis_tvalid(ctrl_s_axis_tvalid_3)
 );
 
 
