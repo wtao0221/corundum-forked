@@ -41,7 +41,11 @@ localparam WAIT_FIRST_PKT	= 0,
 		   WAIT_SECOND_PKT	= 1,
 		   DROP_PKT			= 2, 
 		   FLUSH_DATA		= 3,
-		   FLUSH_CTL		= 4;
+		   FLUSH_CTL		= 4,
+		   FLUSH_DATA_LAST	= 5,
+		   FLUSH_CTL_LAST	= 6,
+		   EMPTY_DATA_CYCLE		= 7,
+		   EMPTY_CTL_CYCLE	= 8;
 
 
 reg [C_S_AXIS_DATA_WIDTH-1:0]		r_tdata;
@@ -50,20 +54,11 @@ reg [C_S_AXIS_TUSER_WIDTH-1:0]		r_tuser;
 reg									r_tvalid;
 reg									r_tlast;
 
-reg [2:0] state, state_next;
+reg [3:0] state, state_next;
 
 // 1 for control, 0 for data;
 reg 								c_switch;
 
-// 1-clk delayed signals
-reg [C_S_AXIS_DATA_WIDTH-1:0]			s_axis_tdata_d1;
-reg [((C_S_AXIS_DATA_WIDTH/8))-1:0]		s_axis_tkeep_d1;
-reg [C_S_AXIS_TUSER_WIDTH-1:0]			s_axis_tuser_d1;
-reg										s_axis_tlast_d1;
-reg										s_axis_tvalid_d1;
-reg										m_axis_tready_d1;
-
-/*
 // signals for pkt fifo
 wire									pkt_fifo_nearly_full;
 wire									pkt_fifo_empty;
@@ -72,6 +67,10 @@ wire [C_S_AXIS_DATA_WIDTH-1:0]			tdata_fifo;
 wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]	tkeep_fifo;
 wire [C_S_AXIS_TUSER_WIDTH-1:0]			tuser_fifo;
 wire									tlast_fifo;
+reg [C_S_AXIS_DATA_WIDTH-1:0]			tdata_fifo_d1;
+reg [((C_S_AXIS_DATA_WIDTH/8))-1:0]		tkeep_fifo_d1;
+reg [C_S_AXIS_TUSER_WIDTH-1:0]			tuser_fifo_d1;
+reg										tlast_fifo_d1;
 
 //
 assign s_axis_tready = !pkt_fifo_nearly_full;
@@ -92,62 +91,112 @@ pkt_fifo
 	.empty									(pkt_fifo_empty),
 	.reset									(~aresetn),
 	.clk									(clk)
-);*/
-
-assign s_axis_tready = m_axis_tready_d1;
+);
 
 always @(*) begin
 
-	r_tdata = s_axis_tdata_d1;
-	r_tkeep = s_axis_tkeep_d1;
-	r_tuser = s_axis_tuser_d1;
-	r_tlast = s_axis_tlast_d1;
-	r_tvalid = s_axis_tvalid_d1;
+	r_tdata = tdata_fifo_d1;
+	r_tkeep = tkeep_fifo_d1;
+	r_tuser = tuser_fifo_d1;
+	r_tlast = tlast_fifo_d1;
+	r_tvalid = 0;
 
-	c_switch = 1'b0;
+	c_switch = 0;
 
 	state_next = state;
+	pkt_fifo_rd_en = 0;
 
 	case (state) 
 		WAIT_FIRST_PKT: begin
-			// 1st pkt
-			if (m_axis_tready && s_axis_tvalid) begin
-				if ((s_axis_tdata[143:128]==`ETH_TYPE_IPV4) && 
-					(s_axis_tdata[223:216]==`IPPROT_UDP)) begin
+			// 1st packet
+			if (!pkt_fifo_empty) begin
+				if ((tdata_fifo[143:128]==`ETH_TYPE_IPV4) && 
+					(tdata_fifo[223:216]==`IPPROT_UDP)) begin
 					state_next = WAIT_SECOND_PKT;
+					pkt_fifo_rd_en = 1;
 				end
 				else begin
 					state_next = DROP_PKT;
 				end
 			end
 		end
-		// send out data with 1-clk delayed signals
 		WAIT_SECOND_PKT: begin
-			if (s_axis_tvalid) begin
-				if (s_axis_tdata[79:64] == `CONTROL_PORT) begin
-					// ctrl pkt
+			// 2nd packet
+			if (!pkt_fifo_empty && m_axis_tready) begin
+				if (tdata_fifo[79:64]==`CONTROL_PORT) begin
 					c_switch = 1'b1;
+					pkt_fifo_rd_en = 1;
+					r_tvalid = 1;
 					state_next = FLUSH_CTL;
 				end
 				else begin
+					pkt_fifo_rd_en = 1;
+					r_tvalid = 1;
 					state_next = FLUSH_DATA;
 				end
 			end
 		end
 		FLUSH_DATA: begin
-			if (s_axis_tlast_d1) begin
+			if (m_axis_tready) begin
+				r_tvalid = 1;
+
+				if (!pkt_fifo_empty) begin
+					pkt_fifo_rd_en = 1;
+				end
+				else begin
+					state_next = EMPTY_DATA_CYCLE;
+				end
+
+				if (tlast_fifo) begin
+					state_next = FLUSH_DATA_LAST;
+				end
+			end
+		end
+		FLUSH_DATA_LAST: begin
+			if (m_axis_tready) begin
+				r_tvalid = 1;
 				state_next = WAIT_FIRST_PKT;
+			end
+		end
+		EMPTY_DATA_CYCLE: begin
+			if (!pkt_fifo_empty) begin
+				pkt_fifo_rd_en = 1;
+				state_next = FLUSH_DATA;
 			end
 		end
 		FLUSH_CTL: begin
-			c_switch = 1'b1;
-			if (s_axis_tlast_d1) begin
+			if (m_axis_tready) begin
+				r_tvalid = 1;
+				c_switch = 1;
+
+				if (!pkt_fifo_empty) begin
+					pkt_fifo_rd_en = 1;
+				end
+				else begin
+					state_next = EMPTY_CTL_CYCLE;
+				end
+
+				if (tlast_fifo) begin
+					state_next = FLUSH_CTL_LAST;
+				end
+			end
+		end
+		FLUSH_CTL_LAST: begin
+			if (m_axis_tready) begin
+				r_tvalid = 1;
+				c_switch = 1;
 				state_next = WAIT_FIRST_PKT;
 			end
 		end
+		EMPTY_CTL_CYCLE: begin
+			if (!pkt_fifo_empty) begin
+				pkt_fifo_rd_en = 1;
+				state_next = FLUSH_CTL;
+			end
+		end
 		DROP_PKT: begin
-			r_tvalid = 0;
-			if (s_axis_tlast_d1) begin
+			pkt_fifo_rd_en = 1;
+			if (tlast_fifo) begin
 				state_next = WAIT_FIRST_PKT;
 			end
 		end
@@ -180,7 +229,6 @@ always @(posedge clk or negedge aresetn) begin
 			m_axis_tkeep <= r_tkeep;
 			m_axis_tuser <= r_tuser;
 			m_axis_tlast <= r_tlast;
-
 			m_axis_tvalid <= r_tvalid;
 			// reset control path output 
 			ctrl_m_axis_tdata <= 0;
@@ -190,6 +238,12 @@ always @(posedge clk or negedge aresetn) begin
 			ctrl_m_axis_tvalid <= 0;
 		end
 		else begin
+			m_axis_tdata <= 0;
+			m_axis_tkeep <= 0;
+			m_axis_tuser <= 0;
+			m_axis_tlast <= 0;
+			m_axis_tvalid <= 0;
+			// 
 			ctrl_m_axis_tdata <= r_tdata;
 			ctrl_m_axis_tkeep <= r_tkeep;
 			ctrl_m_axis_tuser <= r_tuser;
@@ -202,23 +256,31 @@ end
 
 always @(posedge clk) begin
 	if (~aresetn) begin
-		s_axis_tdata_d1 <= 0;
-		s_axis_tuser_d1 <= 0;
-		s_axis_tkeep_d1 <= 0;
-		s_axis_tlast_d1 <= 0;
-		s_axis_tvalid_d1 <= 0;
-
-		m_axis_tready_d1 <= 0;
+		tdata_fifo_d1 <= 0;
+		tuser_fifo_d1 <= 0;
+		tkeep_fifo_d1 <= 0;
+		tlast_fifo_d1 <= 0;
 	end
 	else begin
-		s_axis_tdata_d1 <= s_axis_tdata;
-		s_axis_tuser_d1 <= s_axis_tuser;
-		s_axis_tkeep_d1 <= s_axis_tkeep;
-		s_axis_tlast_d1 <= s_axis_tlast;
-		s_axis_tvalid_d1 <= s_axis_tvalid;
-
-		m_axis_tready_d1 <= m_axis_tready;
+		tdata_fifo_d1 <= tdata_fifo;
+		tuser_fifo_d1 <= tuser_fifo;
+		tkeep_fifo_d1 <= tkeep_fifo;
+		tlast_fifo_d1 <= tlast_fifo;
 	end
 end
+
+ila_1
+debug1 (
+	.clk		(clk),
+
+	.probe0		(state),
+	.probe1		(ctrl_m_axis_tvalid),
+	.probe2		(c_switch),
+	.probe3		(s_axis_tvalid),
+	.probe4		(s_axis_tlast),
+	.probe5		(m_axis_tvalid),
+	.probe6		(m_axis_tlast),
+	.probe7		(m_axis_tdata[255-:16])
+);
 
 endmodule
