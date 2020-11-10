@@ -31,13 +31,8 @@ module rmt_wrapper #(
 	
 );
 
-integer idx;
-
 /*=================================================*/
 localparam PKT_VEC_WIDTH = (6+4+2)*8*8+20*5+256;
-//the number of cycles for a PHV
-localparam SEG_NUM = 1024/C_S_AXIS_DATA_WIDTH;
-
 // pkt fifo
 wire								pkt_fifo_rd_en;
 wire								pkt_fifo_nearly_full;
@@ -80,15 +75,6 @@ wire								stg4_phv_out_valid_w;
 reg									stg4_phv_out_valid_r;
 
 
-
-
-//TODO for bug fix
-// wire [521:0] high_phv_out;
-// wire [511:0] low_phv_out;
-// assign phv_fifo_out_w = {high_phv_out, low_phv_out};
-/*=================================================*/
-
-
 //NOTE: to filter out packets other than UDP/IP.
 wire [C_S_AXIS_DATA_WIDTH-1:0]				s_axis_tdata_f;
 wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		s_axis_tkeep_f;
@@ -115,6 +101,30 @@ wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_3;
 wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_3;
 wire 										ctrl_s_axis_tvalid_3;
 wire 										ctrl_s_axis_tlast_3;
+
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_4;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_4;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_4;
+wire 										ctrl_s_axis_tvalid_4;
+wire 										ctrl_s_axis_tlast_4;
+
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_5;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_5;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_5;
+wire 										ctrl_s_axis_tvalid_5;
+wire 										ctrl_s_axis_tlast_5;
+
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_6;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_6;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_6;
+wire 										ctrl_s_axis_tvalid_6;
+wire 										ctrl_s_axis_tlast_6;
+
+wire [C_S_AXIS_DATA_WIDTH-1:0]				ctrl_s_axis_tdata_7;
+wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]		ctrl_s_axis_tkeep_7;
+wire [C_S_AXIS_TUSER_WIDTH-1:0]				ctrl_s_axis_tuser_7;
+wire 										ctrl_s_axis_tvalid_7;
+wire 										ctrl_s_axis_tlast_7;
 
 assign s_axis_tready_f = !pkt_fifo_nearly_full;
 
@@ -173,12 +183,10 @@ fallthrough_small_fifo #(
 )
 phv_fifo
 (
-	// .din			(phv_fifo_in),
-	// .wr_en			(phv_valid),
-	// .din			(stg4_phv_out),
-	// .wr_en			(stg4_phv_out_valid_w),
-	.din			(stg0_phv_out),
-	.wr_en			(stg0_phv_out_valid_w),
+	.din			(stg4_phv_out),
+	.wr_en			(stg4_phv_out_valid_w),
+	// .din			(stg0_phv_in),
+	// .wr_en			(stg0_phv_in_valid_w),
 
 	.rd_en			(phv_fifo_rd_en),
 	.dout			(phv_fifo_out_w),
@@ -190,32 +198,6 @@ phv_fifo
 	.reset			(~aresetn),
 	.clk			(clk)
 );
-/*
-fifo_generator_512b phv_fifo_1 (
-  .clk(clk),                  // input wire clk
-  .srst(~aresetn),                // input wire srst
-  .din(stg0_phv_out[511:0]),                  // input wire [511 : 0] din
-  .wr_en(stg0_phv_out_valid_w),              // input wire wr_en
-  .rd_en(phv_fifo_rd_en),              // input wire rd_en
-  .dout(low_phv_out),                // output wire [511 : 0] dout
-  .full(),                // output wire full
-  .empty(phv_fifo_empty),              // output wire empty
-  .wr_rst_busy(),  // output wire wr_rst_busy
-  .rd_rst_busy()  // output wire rd_rst_busy
-);
-
-fifo_generator_522b phv_fifo_2 (
-  .clk(clk),                  // input wire clk
-  .srst(~aresetn),                // input wire srst
-  .din(stg0_phv_out[1123:512]),                  // input wire [521 : 0] din
-  .wr_en(stg0_phv_out_valid_w),              // input wire wr_en
-  .rd_en(phv_fifo_rd_en),              // input wire rd_en
-  .dout(high_phv_out),                // output wire [521 : 0] dout
-  .full(),                // output wire full
-  .empty(),              // output wire empty
-  .wr_rst_busy(),  // output wire wr_rst_busy
-  .rd_rst_busy()  // output wire rd_rst_busy
-);*/
 
 parser #(
     .C_S_AXIS_DATA_WIDTH(C_S_AXIS_DATA_WIDTH), //for 100g mac exclusively
@@ -252,6 +234,7 @@ phv_parser
 	.ctrl_m_axis_tvalid(ctrl_s_axis_tvalid_2)
 );
 
+
 stage #(
 	.C_S_AXIS_DATA_WIDTH(256),
 	.STAGE_ID(0)
@@ -282,6 +265,128 @@ stage0
 	.c_m_axis_tvalid(ctrl_s_axis_tvalid_3)
 );
 
+
+stage #(
+	.C_S_AXIS_DATA_WIDTH(256),
+	.STAGE_ID(1)
+)
+stage1
+(
+	.axis_clk				(clk),
+    .aresetn				(aresetn),
+
+	// input
+    .phv_in					(stg0_phv_out),
+    .phv_in_valid			(stg0_phv_out_valid_w),
+	// output
+    .phv_out				(stg1_phv_out),
+    .phv_out_valid			(stg1_phv_out_valid),
+
+	// control path
+    .c_s_axis_tdata(ctrl_s_axis_tdata_3),
+	.c_s_axis_tuser(ctrl_s_axis_tuser_3),
+	.c_s_axis_tkeep(ctrl_s_axis_tkeep_3),
+	.c_s_axis_tlast(ctrl_s_axis_tlast_3),
+	.c_s_axis_tvalid(ctrl_s_axis_tvalid_3),
+
+    .c_m_axis_tdata(ctrl_s_axis_tdata_4),
+	.c_m_axis_tuser(ctrl_s_axis_tuser_4),
+	.c_m_axis_tkeep(ctrl_s_axis_tkeep_4),
+	.c_m_axis_tlast(ctrl_s_axis_tlast_4),
+	.c_m_axis_tvalid(ctrl_s_axis_tvalid_4)
+);
+
+
+stage #(
+	.C_S_AXIS_DATA_WIDTH(256),
+	.STAGE_ID(2)
+)
+stage2
+(
+	.axis_clk				(clk),
+    .aresetn				(aresetn),
+
+	// input
+    .phv_in					(stg1_phv_out),
+    .phv_in_valid			(stg1_phv_out_valid_w),
+	// output
+    .phv_out				(stg2_phv_out),
+    .phv_out_valid			(stg2_phv_out_valid),
+
+	// control path
+    .c_s_axis_tdata(ctrl_s_axis_tdata_4),
+	.c_s_axis_tuser(ctrl_s_axis_tuser_4),
+	.c_s_axis_tkeep(ctrl_s_axis_tkeep_4),
+	.c_s_axis_tlast(ctrl_s_axis_tlast_4),
+	.c_s_axis_tvalid(ctrl_s_axis_tvalid_4),
+
+    .c_m_axis_tdata(ctrl_s_axis_tdata_5),
+	.c_m_axis_tuser(ctrl_s_axis_tuser_5),
+	.c_m_axis_tkeep(ctrl_s_axis_tkeep_5),
+	.c_m_axis_tlast(ctrl_s_axis_tlast_5),
+	.c_m_axis_tvalid(ctrl_s_axis_tvalid_5)
+);
+
+stage #(
+	.C_S_AXIS_DATA_WIDTH(256),
+	.STAGE_ID(3)
+)
+stage3
+(
+	.axis_clk				(clk),
+    .aresetn				(aresetn),
+
+	// input
+    .phv_in					(stg2_phv_out),
+    .phv_in_valid			(stg2_phv_out_valid_w),
+	// output
+    .phv_out				(stg3_phv_out),
+    .phv_out_valid			(stg3_phv_out_valid),
+
+	// control path
+    .c_s_axis_tdata(ctrl_s_axis_tdata_5),
+	.c_s_axis_tuser(ctrl_s_axis_tuser_5),
+	.c_s_axis_tkeep(ctrl_s_axis_tkeep_5),
+	.c_s_axis_tlast(ctrl_s_axis_tlast_5),
+	.c_s_axis_tvalid(ctrl_s_axis_tvalid_5),
+
+    .c_m_axis_tdata(ctrl_s_axis_tdata_6),
+	.c_m_axis_tuser(ctrl_s_axis_tuser_6),
+	.c_m_axis_tkeep(ctrl_s_axis_tkeep_6),
+	.c_m_axis_tlast(ctrl_s_axis_tlast_6),
+	.c_m_axis_tvalid(ctrl_s_axis_tvalid_6)
+);
+
+
+stage #(
+	.C_S_AXIS_DATA_WIDTH(256),
+	.STAGE_ID(4)
+)
+stage4
+(
+	.axis_clk				(clk),
+    .aresetn				(aresetn),
+
+	// input
+    .phv_in					(stg3_phv_out),
+    .phv_in_valid			(stg3_phv_out_valid_w),
+	// output
+    .phv_out				(stg4_phv_out),
+    .phv_out_valid			(stg4_phv_out_valid),
+
+	// control path
+    .c_s_axis_tdata(ctrl_s_axis_tdata_6),
+	.c_s_axis_tuser(ctrl_s_axis_tuser_6),
+	.c_s_axis_tkeep(ctrl_s_axis_tkeep_6),
+	.c_s_axis_tlast(ctrl_s_axis_tlast_6),
+	.c_s_axis_tvalid(ctrl_s_axis_tvalid_6),
+
+    .c_m_axis_tdata(ctrl_s_axis_tdata_7),
+	.c_m_axis_tuser(ctrl_s_axis_tuser_7),
+	.c_m_axis_tkeep(ctrl_s_axis_tkeep_7),
+	.c_m_axis_tlast(ctrl_s_axis_tlast_7),
+	.c_m_axis_tvalid(ctrl_s_axis_tvalid_7)
+);
 
 
 deparser #(
@@ -314,78 +419,12 @@ phv_deparser (
 	.depar_out_tready		(m_axis_tready),
 
 	// control path
-	.ctrl_s_axis_tdata(ctrl_s_axis_tdata_3),
-	.ctrl_s_axis_tuser(ctrl_s_axis_tuser_3),
-	.ctrl_s_axis_tkeep(ctrl_s_axis_tkeep_3),
-	.ctrl_s_axis_tlast(ctrl_s_axis_tlast_3),
-	.ctrl_s_axis_tvalid(ctrl_s_axis_tvalid_3)
+	.ctrl_s_axis_tdata(ctrl_s_axis_tdata_7),
+	.ctrl_s_axis_tuser(ctrl_s_axis_tuser_7),
+	.ctrl_s_axis_tkeep(ctrl_s_axis_tkeep_7),
+	.ctrl_s_axis_tlast(ctrl_s_axis_tlast_7),
+	.ctrl_s_axis_tvalid(ctrl_s_axis_tvalid_7)
 );
-
-
-/*
-stage #(
-	.STAGE(1)
-)
-stage1
-(
-	.axis_clk				(clk),
-    .aresetn				(aresetn),
-
-	// input
-    .phv_in					(stg0_phv_out),
-    .phv_in_valid			(stg0_phv_out_valid_w),
-	// output
-    .phv_out				(stg1_phv_out),
-    .phv_out_valid			(stg1_phv_out_valid)
-);
-
-stage #(
-	.STAGE(2)
-)
-stage2
-(
-	.axis_clk				(clk),
-    .aresetn				(aresetn),
-
-	// input
-    .phv_in					(stg1_phv_out),
-    .phv_in_valid			(stg1_phv_out_valid_w),
-	// output
-    .phv_out				(stg2_phv_out),
-    .phv_out_valid			(stg2_phv_out_valid)
-);
-
-stage #(
-	.STAGE(3)
-)
-stage3
-(
-	.axis_clk				(clk),
-    .aresetn				(aresetn),
-
-	// input
-    .phv_in					(stg2_phv_out),
-    .phv_in_valid			(stg2_phv_out_valid_w),
-	// output
-    .phv_out				(stg3_phv_out),
-    .phv_out_valid			(stg3_phv_out_valid)
-);
-
-stage #(
-	.STAGE(4)
-)
-stage4
-(
-	.axis_clk				(clk),
-    .aresetn				(aresetn),
-
-	// input
-    .phv_in					(stg3_phv_out),
-    .phv_in_valid			(stg3_phv_out_valid_w),
-	// output
-    .phv_out				(stg4_phv_out),
-    .phv_out_valid			(stg4_phv_out_valid)
-);*/
 
 
 always @(posedge clk) begin

@@ -370,8 +370,9 @@ assign ctrl_s_axis_tdata_swapped = {	ctrl_s_axis_tdata[0+:8],
 										ctrl_s_axis_tdata[240+:8],
 										ctrl_s_axis_tdata[248+:8]};
 
-reg	[7:0]						ctrl_wr_ram_addr;
-reg	[259:0]						ctrl_wr_ram_data;
+
+reg	[7:0]						ctrl_wr_ram_addr, ctrl_wr_ram_addr_next;
+reg	[259:0]						ctrl_wr_ram_data, ctrl_wr_ram_data_next;
 reg								ctrl_wr_ram_en;
 wire [7:0]						ctrl_mod_id;
 
@@ -380,9 +381,7 @@ assign ctrl_mod_id = ctrl_s_axis_tdata[112+:8];
 localparam	WAIT_FIRST_PKT = 0,
 			WAIT_SECOND_PKT = 1,
 			WAIT_THIRD_PKT = 2,
-			WRITE_RAM = 3,
-			FINISH_WRITE_RAM = 4,
-			FLUSH_PKT = 5;
+			WRITE_RAM = 3;
 
 reg [2:0] ctrl_state, ctrl_state_next;
 
@@ -394,6 +393,8 @@ always @(*) begin
 	ctrl_m_axis_tvalid_next = ctrl_s_axis_tvalid_d1;
 
 	ctrl_state_next = ctrl_state;
+	ctrl_wr_ram_addr_next = ctrl_wr_ram_addr;
+	ctrl_wr_ram_data_next = ctrl_wr_ram_data;
 	ctrl_wr_ram_en = 0;
 
 	case (ctrl_state)
@@ -405,59 +406,25 @@ always @(*) begin
 		end
 		WAIT_SECOND_PKT: begin
 			// 2nd ctrl packet, we can check module ID
-			if (ctrl_s_axis_tvalid && ctrl_mod_id[2:0]==PARSER_MOD_ID) begin
-				ctrl_state_next = WAIT_THIRD_PKT;
-				ctrl_wr_ram_addr = ctrl_s_axis_tdata[128+:8];
+			if (ctrl_s_axis_tvalid) begin
+				if (ctrl_mod_id[2:0]==PARSER_MOD_ID) begin
+					ctrl_state_next = WAIT_THIRD_PKT;
 
-				ctrl_m_axis_tdata_next = 0;
-				ctrl_m_axis_tuser_next = 0;
-				ctrl_m_axis_tkeep_next = 0;
-				ctrl_m_axis_tlast_next = 0;
-				ctrl_m_axis_tvalid_next = 0;
-			end
-			else begin
-				ctrl_state_next = FLUSH_PKT;
+					ctrl_wr_ram_addr_next = ctrl_s_axis_tdata[128+:8];
+				end
 			end
 		end
 		WAIT_THIRD_PKT: begin // first half of ctrl_wr_ram_data
 			if (ctrl_s_axis_tvalid) begin
 				ctrl_state_next = WRITE_RAM;
-				ctrl_wr_ram_data[4+:256] = ctrl_s_axis_tdata_swapped[0+:256];
-				ctrl_m_axis_tdata_next = 0;
-				ctrl_m_axis_tuser_next = 0;
-				ctrl_m_axis_tkeep_next = 0;
-				ctrl_m_axis_tlast_next = 0;
-				ctrl_m_axis_tvalid_next = 0;
-			end
-			else begin
-				ctrl_state_next = FLUSH_PKT;
+				ctrl_wr_ram_data_next[259:4] = ctrl_s_axis_tdata_swapped[255:0];
 			end
 		end
 		WRITE_RAM: begin // second half of ctrl_wr_ram_data
-			ctrl_state_next = FINISH_WRITE_RAM;
 			if (ctrl_s_axis_tvalid) begin
+				ctrl_state_next = WAIT_FIRST_PKT;
 				ctrl_wr_ram_en = 1;
-				ctrl_wr_ram_data[0+:4] = ctrl_s_axis_tdata_swapped[0+:4];
-				ctrl_m_axis_tdata_next = 0;
-				ctrl_m_axis_tuser_next = 0;
-				ctrl_m_axis_tkeep_next = 0;
-				ctrl_m_axis_tlast_next = 0;
-				ctrl_m_axis_tvalid_next = 0;
-			end
-		end
-		FINISH_WRITE_RAM: begin
-			ctrl_m_axis_tdata_next = 0;
-			ctrl_m_axis_tuser_next = 0;
-			ctrl_m_axis_tkeep_next = 0;
-			ctrl_m_axis_tlast_next = 0;
-			ctrl_m_axis_tvalid_next = 0;
-			if (ctrl_s_axis_tlast_d1) begin
-				ctrl_state_next = WAIT_FIRST_PKT;
-			end
-		end
-		FLUSH_PKT: begin
-			if (ctrl_s_axis_tlast_d1) begin
-				ctrl_state_next = WAIT_FIRST_PKT;
+				ctrl_wr_ram_data_next[3:0] = ctrl_s_axis_tdata_swapped[255:252];
 			end
 		end
 	endcase
@@ -475,10 +442,11 @@ always @(posedge axis_clk) begin
 		//
 		ctrl_wr_ram_addr <= 0;
 		ctrl_wr_ram_data <= 0;
-		ctrl_wr_ram_en <= 0;
 	end
 	else begin
 		ctrl_state <= ctrl_state_next;
+		ctrl_wr_ram_addr <= ctrl_wr_ram_addr_next;
+		ctrl_wr_ram_data <= ctrl_wr_ram_data_next;
 
 		ctrl_m_axis_tdata <= ctrl_m_axis_tdata_next;
 		ctrl_m_axis_tuser <= ctrl_m_axis_tuser_next;
@@ -515,7 +483,7 @@ parse_act_ram
 (
 	// write port
 	.clka		(axis_clk),
-	.addra		(ctrl_wr_ram_addr),
+	.addra		(ctrl_wr_ram_addr[3:0]),
 	.dina		(ctrl_wr_ram_data),
 	.ena		(1'b1),
 	.wea		(ctrl_wr_ram_en),
@@ -526,6 +494,5 @@ parse_act_ram
 	.doutb		(bram_out),
 	.enb		(1'b1) // always set to 1
 );
-
 
 endmodule
