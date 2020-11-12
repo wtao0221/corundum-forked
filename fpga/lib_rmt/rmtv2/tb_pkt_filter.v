@@ -1,37 +1,39 @@
-
 `timescale 1ns / 1ps
 
-module tb_rmt_wrapper #(
-    // Slave AXI parameters
-	parameter C_S_AXI_DATA_WIDTH = 32,
-	parameter C_S_AXI_ADDR_WIDTH = 12,
-	parameter C_BASEADDR = 32'h80000000,
-	// AXI Stream parameters
-	// Slave
+`define ETH_TYPE_IPV4	16'h0008
+`define IPPROT_UDP		8'h11
+`define CONTROL_PORT    16'hf1f2
+
+module tb_pkt_filter #(
 	parameter C_S_AXIS_DATA_WIDTH = 512,
-	parameter C_S_AXIS_TUSER_WIDTH = 128,
-	// Master
-	parameter C_M_AXIS_DATA_WIDTH = 512,
-	// self-defined
-	parameter PHV_ADDR_WIDTH = 4
-)();
-
-reg                                 clk;
-reg                                 aresetn;
-
-reg [C_S_AXIS_DATA_WIDTH-1:0]		s_axis_tdata;
-reg [((C_S_AXIS_DATA_WIDTH/8))-1:0]	s_axis_tkeep;
-reg [C_S_AXIS_TUSER_WIDTH-1:0]		s_axis_tuser;
-reg									s_axis_tvalid;
-wire								s_axis_tready;
-reg									s_axis_tlast;
-
-wire [C_S_AXIS_DATA_WIDTH-1:0]		    m_axis_tdata;
-wire [((C_S_AXIS_DATA_WIDTH/8))-1:0]    m_axis_tkeep;
-wire [C_S_AXIS_TUSER_WIDTH-1:0]		    m_axis_tuser;
-wire								    m_axis_tvalid;
+	parameter C_S_AXIS_TUSER_WIDTH = 128
+)
+();
+reg				                        clk;
+reg				                        aresetn;
+// input Slave AXI Stream
+reg [C_S_AXIS_DATA_WIDTH-1:0]			s_axis_tdata;
+reg [((C_S_AXIS_DATA_WIDTH/8))-1:0]	    s_axis_tkeep;
+reg [C_S_AXIS_TUSER_WIDTH-1:0]		    s_axis_tuser;
+reg									    s_axis_tvalid;
+wire								    s_axis_tready;
+reg									    s_axis_tlast;
+// output Master AXI Stream
+wire   [C_S_AXIS_DATA_WIDTH-1:0]		m_axis_tdata;
+wire   [((C_S_AXIS_DATA_WIDTH/8))-1:0]	m_axis_tkeep;
+wire   [C_S_AXIS_TUSER_WIDTH-1:0]		m_axis_tuser;
+wire  									m_axis_tvalid;
 reg										m_axis_tready;
 wire									m_axis_tlast;
+//TODO a back-pressure is needed?
+wire   [C_S_AXIS_DATA_WIDTH-1:0]		c_m_axis_tdata;
+wire   [((C_S_AXIS_DATA_WIDTH/8))-1:0]  c_m_axis_tkeep;
+wire   [C_S_AXIS_TUSER_WIDTH-1:0]		c_m_axis_tuser;
+wire   								    c_m_axis_tvalid;
+wire    								c_m_axis_tlast;
+
+
+
 
 assign s_axis_tready = 1'b1;
 
@@ -53,8 +55,7 @@ initial begin
 end
 
 initial begin
-    #(3*CYCLE+CYCLE/2);
-    #(40* CYCLE)
+    #(3*CYCLE+CYCLE/2)
     m_axis_tready <= 1'b1;
     s_axis_tdata <= 512'b0; 
     s_axis_tkeep <= 64'h0;
@@ -62,7 +63,7 @@ initial begin
     s_axis_tvalid <= 1'b0;
     s_axis_tlast <= 1'b0;
     #CYCLE;
-    s_axis_tdata <= {64'hffffffffffffffff,64'hffffffff81000002,16'h0002,143'b0, 8'h11, 72'b0, 16'h0008, 128'hfffffffffffffff}; 
+    s_axis_tdata <= {65'hffffffffffffffff,64'hffffffff81000002,16'h0002,143'b0, 8'h11, 24'hffff, 16'hf1f2, 32'b0, 16'h0008, 128'hfffffffffffffff}; 
     s_axis_tkeep <= 64'hffffffffffffffff;
     s_axis_tuser <= 128'h0;
     s_axis_tvalid <= 1'b1;
@@ -159,109 +160,14 @@ initial begin
     #(40*CYCLE);
 end
 
-//NOTE: 512 test cases
-initial begin
-    #(2*CYCLE); //after the rst_n, start the test
-    #(5) //posedge of clk    
-    /*
-        set up the key extract table
-    */
-    s_axis_tdata <= {128'b0, 4'b0010, 4'b0, 8'b10, 368'b0};
-    s_axis_tdata[143:128] <= 16'h0008;
-    s_axis_tdata[223:216] <= 8'h11;
-    s_axis_tdata[335:320] <= 16'hf1f2;
-    //mod id
-    s_axis_tdata[368+:8] <= 8'h0;
-    //resv
-    s_axis_tdata[380+:4] <= 4'b0;
-    //index
-    s_axis_tdata[384+:8] <= 8'h0;
 
-    s_axis_tvalid <= 1'b1;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-    #(CYCLE)
-
-    s_axis_tdata <= {494'b0,18'hffff};
-    s_axis_tvalid <= 1'b0;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-
-    #CYCLE
-
-    s_axis_tdata <= {494'b0,18'heeeffff};
-    s_axis_tvalid <= 1'b1;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-
-    #(CYCLE)
-    s_axis_tdata <= {494'b0,18'hffff};
-    s_axis_tvalid <= 1'b1;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-
-    #(CYCLE)
-    s_axis_tdata <= {494'b0,18'hffff};
-    s_axis_tvalid <= 1'b1;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b1;
-
-    #(CYCLE)
-    s_axis_tdata <= {494'b0,18'hffff};
-    s_axis_tvalid <= 1'b0;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-
-    #(3*CYCLE)
-    s_axis_tdata <= {128'b0, 4'b0001, 4'b0, 5'b00000, 3'b001, 368'b0};
-    s_axis_tdata[143:128] <= 16'h0008;
-    s_axis_tdata[223:216] <= 8'h11;
-    s_axis_tdata[335:320] <= 16'hf1f2;
-    //mod id
-    s_axis_tdata[368+:8] <= 8'b01;
-    //resv
-    s_axis_tdata[380+:4] <= 4'b1;
-    s_axis_tvalid <= 1'b1;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-    #(CYCLE)
-    s_axis_tdata <= {494'b0,18'hffff};
-    s_axis_tvalid <= 1'b1;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b1;
-
-    #(CYCLE)
-    s_axis_tdata <= 512'b0;
-    s_axis_tvalid <= 1'b0;
-    s_axis_tkeep <= 64'hffffffffffffffff;
-    s_axis_tuser <= 128'b0;
-    s_axis_tlast <= 1'b0;
-    
-    #(20*CYCLE);
-
-end
-
-
-rmt_wrapper #(
-	.C_S_AXI_DATA_WIDTH(),
-	.C_S_AXI_ADDR_WIDTH(),
-	.C_BASEADDR(),
+pkt_filter_1 #(
 	.C_S_AXIS_DATA_WIDTH(C_S_AXIS_DATA_WIDTH),
-	.C_S_AXIS_TUSER_WIDTH(),
-	.C_M_AXIS_DATA_WIDTH(C_M_AXIS_DATA_WIDTH),
-	.PHV_ADDR_WIDTH()
-)rmt_wrapper_ins
+	.C_S_AXIS_TUSER_WIDTH(C_S_AXIS_TUSER_WIDTH)
+)pkt_filter
 (
-	.clk(clk),		// axis clk
-	.aresetn(aresetn),	
+	.clk(clk),
+	.aresetn(aresetn),
 
 	// input Slave AXI Stream
 	.s_axis_tdata(s_axis_tdata),
@@ -277,8 +183,14 @@ rmt_wrapper #(
 	.m_axis_tuser(m_axis_tuser),
 	.m_axis_tvalid(m_axis_tvalid),
 	.m_axis_tready(m_axis_tready),
-	.m_axis_tlast(m_axis_tlast)
-	
+	.m_axis_tlast(m_axis_tlast),
+
+	//TODO a back-pressure is needed?
+	.c_m_axis_tdata(c_m_axis_tdata),
+	.c_m_axis_tkeep(c_m_axis_tkeep),
+	.c_m_axis_tuser(c_m_axis_tuser),
+	.c_m_axis_tvalid(c_m_axis_tvalid),
+	.c_m_axis_tlast(c_m_axis_tlast)
 );
 
 endmodule

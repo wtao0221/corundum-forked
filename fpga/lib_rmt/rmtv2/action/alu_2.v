@@ -8,7 +8,7 @@
 `timescale 1ns / 1ps
 
 module alu_2 #(
-    parameter STAGE = 0,
+    parameter STAGE_ID = 0,
     parameter ACTION_LEN = 25,
     parameter DATA_WIDTH = 32  //data width of the ALU
 )
@@ -26,6 +26,7 @@ module alu_2 #(
     //output to form PHV
     output reg [DATA_WIDTH-1:0]       container_out,
     output reg                        container_out_valid
+
 );
 
 /********intermediate variables declared here********/
@@ -54,7 +55,7 @@ reg							container_out_valid_next;
 assign load_addr = operand_2_in[4:0];
 
 /*
-8 operations to support:
+6 operations to support:
 
 1,2. add/sub:   0001/0010
               extract 2 operands from pkt header, add(sub) and write back.

@@ -1,11 +1,12 @@
-
 `timescale 1ns / 1ps
+
 module parser #(
     //for 100g MAC, the AXIS width is 512b
-	parameter C_S_AXIS_DATA_WIDTH = 256,
+	parameter C_S_AXIS_DATA_WIDTH = 512,
 	parameter C_S_AXIS_TUSER_WIDTH = 128,
 	parameter PKT_HDR_LEN = (6+4+2)*8*8+20*5+256, // check with the doc
-	parameter PARSE_ACT_RAM_WIDTH = 167
+	parameter PARSE_ACT_RAM_WIDTH = 167,
+    parameter PARSER_ID = 0
     )(
     input									axis_clk,
 	input									aresetn,
@@ -19,7 +20,20 @@ module parser #(
 
 	// output
 	output   								phv_valid_out,
-	output      [PKT_HDR_LEN-1:0]			phv_out
+	output      [PKT_HDR_LEN-1:0]			phv_out,
+
+    //control path
+    input [C_S_AXIS_DATA_WIDTH-1:0]			c_s_axis_tdata,
+	input [C_S_AXIS_TUSER_WIDTH-1:0]		c_s_axis_tuser,
+	input [C_S_AXIS_DATA_WIDTH/8-1:0]		c_s_axis_tkeep,
+	input									c_s_axis_tvalid,
+	input									c_s_axis_tlast,
+
+    output reg [C_S_AXIS_DATA_WIDTH-1:0]	c_m_axis_tdata,
+	output reg [C_S_AXIS_TUSER_WIDTH-1:0]	c_m_axis_tuser,
+	output reg [C_S_AXIS_DATA_WIDTH/8-1:0]	c_m_axis_tkeep,
+	output reg								c_m_axis_tvalid,
+	output reg								c_m_axis_tlast
 );
 
 // intermediate variables declared here
@@ -41,6 +55,38 @@ reg  [19:0]  condi_action_d[0:4];
 reg [47:0] val_6B [0:7];
 reg [31:0] val_4B [0:7];
 reg [15:0] val_2B [0:7];
+
+wire [47:0] val_6B_BE [0:7];
+wire [31:0] val_4B_BE [0:7];
+wire [15:0] val_2B_BE [0:7];
+
+//BE LE switching
+assign val_2B_BE[0] = {val_2B[0][7:0], val_2B[0][15:8]};
+assign val_2B_BE[1] = {val_2B[1][7:0], val_2B[1][15:8]};
+assign val_2B_BE[2] = {val_2B[2][7:0], val_2B[2][15:8]};
+assign val_2B_BE[3] = {val_2B[3][7:0], val_2B[3][15:8]};
+assign val_2B_BE[4] = {val_2B[4][7:0], val_2B[4][15:8]};
+assign val_2B_BE[5] = {val_2B[5][7:0], val_2B[5][15:8]};
+assign val_2B_BE[6] = {val_2B[6][7:0], val_2B[6][15:8]};
+assign val_2B_BE[7] = {val_2B[7][7:0], val_2B[7][15:8]};
+
+assign val_4B_BE[0] = {val_4B[0][7:0], val_4B[0][15:8], val_4B[0][23:16], val_4B[0][31:24]};
+assign val_4B_BE[1] = {val_4B[1][7:0], val_4B[1][15:8], val_4B[1][23:16], val_4B[1][31:24]};
+assign val_4B_BE[2] = {val_4B[2][7:0], val_4B[2][15:8], val_4B[2][23:16], val_4B[2][31:24]};
+assign val_4B_BE[3] = {val_4B[3][7:0], val_4B[3][15:8], val_4B[3][23:16], val_4B[3][31:24]};
+assign val_4B_BE[4] = {val_4B[4][7:0], val_4B[4][15:8], val_4B[4][23:16], val_4B[4][31:24]};
+assign val_4B_BE[5] = {val_4B[5][7:0], val_4B[5][15:8], val_4B[5][23:16], val_4B[5][31:24]};
+assign val_4B_BE[6] = {val_4B[6][7:0], val_4B[6][15:8], val_4B[6][23:16], val_4B[6][31:24]};
+assign val_4B_BE[7] = {val_4B[7][7:0], val_4B[7][15:8], val_4B[7][23:16], val_4B[7][31:24]};
+
+assign val_6B_BE[0] = {val_6B[0][7:0], val_6B[0][15:8], val_6B[0][23:16], val_6B[0][31:24], val_6B[0][39:32], val_6B[0][47:40]};
+assign val_6B_BE[1] = {val_6B[1][7:0], val_6B[1][15:8], val_6B[1][23:16], val_6B[1][31:24], val_6B[1][39:32], val_6B[1][47:40]};
+assign val_6B_BE[2] = {val_6B[2][7:0], val_6B[2][15:8], val_6B[2][23:16], val_6B[2][31:24], val_6B[2][39:32], val_6B[2][47:40]};
+assign val_6B_BE[3] = {val_6B[3][7:0], val_6B[3][15:8], val_6B[3][23:16], val_6B[3][31:24], val_6B[3][39:32], val_6B[3][47:40]};
+assign val_6B_BE[4] = {val_6B[4][7:0], val_6B[4][15:8], val_6B[4][23:16], val_6B[4][31:24], val_6B[4][39:32], val_6B[4][47:40]};
+assign val_6B_BE[5] = {val_6B[5][7:0], val_6B[5][15:8], val_6B[5][23:16], val_6B[5][31:24], val_6B[5][39:32], val_6B[5][47:40]};
+assign val_6B_BE[6] = {val_6B[6][7:0], val_6B[6][15:8], val_6B[6][23:16], val_6B[6][31:24], val_6B[6][39:32], val_6B[6][47:40]};
+assign val_6B_BE[7] = {val_6B[7][7:0], val_6B[7][15:8], val_6B[7][23:16], val_6B[7][31:24], val_6B[7][39:32], val_6B[7][47:40]};
 
 integer idx;
 localparam SEG_NUM = 1024/C_S_AXIS_DATA_WIDTH;
@@ -259,9 +305,10 @@ always @(posedge axis_clk or negedge aresetn) begin
     end
 end
 
-assign phv_out = {val_6B[7], val_6B[6], val_6B[5], val_6B[4], val_6B[3], val_6B[2], val_6B[1], val_6B[0],
-				 val_4B[7], val_4B[6], val_4B[5], val_4B[4], val_4B[3], val_4B[2], val_4B[1], val_4B[0],
-				 val_2B[7], val_2B[6], val_2B[5], val_2B[4], val_2B[3], val_2B[2], val_2B[1], val_2B[0],
+//big endian for simpler processing
+assign phv_out = {val_6B_BE[7], val_6B_BE[6], val_6B_BE[5], val_6B_BE[4], val_6B_BE[3], val_6B_BE[2], val_6B_BE[1], val_6B_BE[0],
+				 val_4B_BE[7], val_4B_BE[6], val_4B_BE[5], val_4B_BE[4], val_4B_BE[3], val_4B_BE[2], val_4B_BE[1], val_4B_BE[0],
+				 val_2B_BE[7], val_2B_BE[6], val_2B_BE[5], val_2B_BE[4], val_2B_BE[3], val_2B_BE[2], val_2B_BE[1], val_2B_BE[0],
 				 condi_action[0], condi_action[1], condi_action[2], condi_action[3], condi_action[4],
                  256'b0};
 
@@ -297,6 +344,152 @@ endgenerate
 
 
 
+/****control path for 512b*****/
+wire [7:0]          mod_id; //module ID
+wire [15:0]         control_flag; //dst udp port num
+reg  [7:0]          c_index; //table index(addr)
+reg                 c_wr_en; //enable table write(wen)
+reg  [259:0]        entry_reg;
+
+reg  [2:0]          c_state;
+
+localparam IDLE_C = 1,
+           WRITE_C = 2;
+
+assign mod_id = c_s_axis_tdata[368+:8];
+assign control_flag = c_s_axis_tdata[335:320];
+
+//LE to BE switching
+wire[C_S_AXIS_DATA_WIDTH-1:0] c_s_axis_tdata_swapped;
+assign c_s_axis_tdata_swapped = {	c_s_axis_tdata[0+:8],
+									c_s_axis_tdata[8+:8],
+									c_s_axis_tdata[16+:8],
+									c_s_axis_tdata[24+:8],
+									c_s_axis_tdata[32+:8],
+									c_s_axis_tdata[40+:8],
+									c_s_axis_tdata[48+:8],
+									c_s_axis_tdata[56+:8],
+									c_s_axis_tdata[64+:8],
+									c_s_axis_tdata[72+:8],
+									c_s_axis_tdata[80+:8],
+									c_s_axis_tdata[88+:8],
+									c_s_axis_tdata[96+:8],
+									c_s_axis_tdata[104+:8],
+									c_s_axis_tdata[112+:8],
+									c_s_axis_tdata[120+:8],
+									c_s_axis_tdata[128+:8],
+									c_s_axis_tdata[136+:8],
+									c_s_axis_tdata[144+:8],
+									c_s_axis_tdata[152+:8],
+									c_s_axis_tdata[160+:8],
+									c_s_axis_tdata[168+:8],
+									c_s_axis_tdata[176+:8],
+									c_s_axis_tdata[184+:8],
+									c_s_axis_tdata[192+:8],
+									c_s_axis_tdata[200+:8],
+									c_s_axis_tdata[208+:8],
+									c_s_axis_tdata[216+:8],
+									c_s_axis_tdata[224+:8],
+									c_s_axis_tdata[232+:8],
+									c_s_axis_tdata[240+:8],
+									c_s_axis_tdata[248+:8],
+                                    c_s_axis_tdata[256+:8],
+                                    c_s_axis_tdata[264+:8],
+                                    c_s_axis_tdata[272+:8],
+                                    c_s_axis_tdata[280+:8],
+                                    c_s_axis_tdata[288+:8],
+                                    c_s_axis_tdata[296+:8],
+                                    c_s_axis_tdata[304+:8],
+                                    c_s_axis_tdata[312+:8],
+                                    c_s_axis_tdata[320+:8],
+                                    c_s_axis_tdata[328+:8],
+                                    c_s_axis_tdata[336+:8],
+                                    c_s_axis_tdata[344+:8],
+                                    c_s_axis_tdata[352+:8],
+                                    c_s_axis_tdata[360+:8],
+                                    c_s_axis_tdata[368+:8],
+                                    c_s_axis_tdata[376+:8],
+                                    c_s_axis_tdata[384+:8],
+                                    c_s_axis_tdata[392+:8],
+                                    c_s_axis_tdata[400+:8],
+                                    c_s_axis_tdata[408+:8],
+                                    c_s_axis_tdata[416+:8],
+                                    c_s_axis_tdata[424+:8],
+                                    c_s_axis_tdata[432+:8],
+                                    c_s_axis_tdata[440+:8],
+                                    c_s_axis_tdata[448+:8],
+                                    c_s_axis_tdata[456+:8],
+                                    c_s_axis_tdata[464+:8],
+                                    c_s_axis_tdata[472+:8],
+                                    c_s_axis_tdata[480+:8],
+                                    c_s_axis_tdata[488+:8],
+                                    c_s_axis_tdata[496+:8],
+                                    c_s_axis_tdata[504+:8]
+                                };
+
+always @(posedge axis_clk or negedge aresetn) begin
+    if(~aresetn) begin
+        c_wr_en <= 1'b0;
+        c_index <= 4'b0;
+
+        c_m_axis_tdata <= 0;
+        c_m_axis_tuser <= 0;
+        c_m_axis_tkeep <= 0;
+        c_m_axis_tvalid <= 0;
+        c_m_axis_tlast <= 0;
+
+        c_state <= IDLE_C;
+    end
+    else begin
+        case(c_state)
+            IDLE_C: begin
+                if(c_s_axis_tvalid && mod_id[2:0] == PARSER_ID && control_flag == 16'hf1f2)begin
+                    c_wr_en <= 1'b1;
+                    c_index <= c_s_axis_tdata[384+:8];
+
+                    c_m_axis_tdata <= 0;
+                    c_m_axis_tuser <= 0;
+                    c_m_axis_tkeep <= 0;
+                    c_m_axis_tvalid <= 0;
+                    c_m_axis_tlast <= 0;
+
+                    c_state <= WRITE_C;
+
+                end
+                else begin
+                    c_wr_en <= 1'b0;
+                    c_index <= 4'b0; 
+
+                    c_m_axis_tdata <= c_s_axis_tdata;
+                    c_m_axis_tuser <= c_s_axis_tuser;
+                    c_m_axis_tkeep <= c_s_axis_tkeep;
+                    c_m_axis_tvalid <= c_s_axis_tvalid;
+                    c_m_axis_tlast <= c_s_axis_tlast;
+
+                    c_state <= IDLE_C;
+                end
+            end
+            //support full table flush
+            WRITE_C: begin
+                if(c_s_axis_tlast && c_s_axis_tvalid) begin
+                    c_wr_en <= 1'b0;
+                    c_index <= 4'b0;
+                    c_state <= IDLE_C;
+                end
+                else begin
+                    if (c_s_axis_tvalid) begin
+                        c_wr_en <= 1'b1;
+                        c_index <= c_index + 4'b1;
+                    end
+                    c_state <= WRITE_C;
+                end
+            end
+        endcase
+
+    end
+end
+
+
 // =============================================================== //
 // parse_act_ram_ip #(
 // 	.C_INIT_FILE_NAME	("./parse_act_ram_init_file.mif"),
@@ -307,10 +500,10 @@ parse_act_ram
 (
 	// write port
 	.clka		(axis_clk),
-	.addra		(),
-	.dina		(),
-	.ena		(),
-	.wea		(),
+	.addra		(c_index[3:0]),
+	.dina		(c_s_axis_tdata_swapped[C_S_AXIS_DATA_WIDTH-1 -: 260]),
+	.ena		(1'b1),
+	.wea		(c_wr_en),
 
 	//
 	.clkb		(axis_clk),

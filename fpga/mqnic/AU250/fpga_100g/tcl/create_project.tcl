@@ -10,14 +10,14 @@ set proj_dir ./project_synth
 set SYN_FILES [list rtl/fpga.v]
 # lappend SYN_FILES rtl/fpga_core.v
 lappend SYN_FILES rtl/one_in_one_out/fpga_core.v
-#
+
 lappend SYN_FILES rtl/debounce_switch.v
 lappend SYN_FILES rtl/sync_signal.v
 # lappend SYN_FILES rtl/common/interface.v
 lappend SYN_FILES rtl/one_in_one_out/interface.v
 # lappend SYN_FILES rtl/common/port.v
 lappend SYN_FILES rtl/one_in_one_out/port.v
-#
+
 lappend SYN_FILES rtl/common/cpl_write.v
 lappend SYN_FILES rtl/common/cpl_op_mux.v
 lappend SYN_FILES rtl/common/desc_fetch.v
@@ -93,6 +93,7 @@ lappend IP_TCL_FILES ip/clk_wiz_0.tcl
 lappend IP_TCL_FILES ip/rmt/blk_mem_gen_0.tcl
 lappend IP_TCL_FILES ip/rmt/blk_mem_gen_1.tcl
 lappend IP_TCL_FILES ip/rmt/blk_mem_gen_2.tcl
+lappend IP_TCL_FILES ip/rmt/blk_mem_gen_3.tcl
 lappend IP_TCL_FILES ip/rmt/fifo_generator_512b.tcl
 lappend IP_TCL_FILES ip/rmt/fifo_generator_522b.tcl
 lappend IP_TCL_FILES ip/rmt/fifo_generator_705b.tcl

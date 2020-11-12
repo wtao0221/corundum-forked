@@ -190,9 +190,36 @@ initial begin
         c_s_axis_tuser <= 128'b0;
         c_s_axis_tlast <= 1'b0;
         #(CYCLE)
+        c_s_axis_tdata <= {238'b0,18'hffff};
+        c_s_axis_tvalid <= 1'b0;
+        c_s_axis_tkeep <= 32'hffffffff;
+        c_s_axis_tuser <= 128'b0;
+        c_s_axis_tlast <= 1'b0;
+        #(CYCLE)
 
         c_s_axis_tdata <= {128'b0, 4'b0, 4'b0, 8'b10, 112'b0};
+        //module id
+        c_s_axis_tdata[112+:8] <= 8'b10;
+        //control flag
+        c_s_axis_tdata[64+:16] <= 16'hf1f2;
+        //table type
+        c_s_axis_tdata[124+:4] <= 4'b1;
+        //index type
+        c_s_axis_tdata[128+:8] <= 8'h0;
         c_s_axis_tvalid <= 1'b1;
+        c_s_axis_tkeep <= 32'hffffffff;
+        c_s_axis_tuser <= 128'b0;
+        c_s_axis_tlast <= 1'b0;
+        #(CYCLE)
+
+        c_s_axis_tdata <= 256'hffffffffffffffffffffffffffffffffffffffffffffff;
+        c_s_axis_tvalid <= 1'b1;
+        c_s_axis_tkeep <= 32'hffffffff;
+        c_s_axis_tuser <= 128'b0;
+        c_s_axis_tlast <= 1'b0;
+        #(CYCLE)
+        c_s_axis_tdata <= {238'b0,18'hffff};
+        c_s_axis_tvalid <= 1'b0;
         c_s_axis_tkeep <= 32'hffffffff;
         c_s_axis_tuser <= 128'b0;
         c_s_axis_tlast <= 1'b0;
@@ -258,6 +285,12 @@ initial begin
         #(CYCLE)
         c_s_axis_tdata <= 256'hfffffffffffffffffffffffffffffffffffffffffffffff;
         c_s_axis_tvalid <= 1'b1;
+        c_s_axis_tkeep <= 32'hffffffff;
+        c_s_axis_tuser <= 128'b0;
+        c_s_axis_tlast <= 1'b0;
+        #(CYCLE)
+        c_s_axis_tdata <= 256'hfffffffffffffffffffffffffffffffffffffffffffffff;
+        c_s_axis_tvalid <= 1'b0;
         c_s_axis_tkeep <= 32'hffffffff;
         c_s_axis_tuser <= 128'b0;
         c_s_axis_tlast <= 1'b0;
