@@ -423,7 +423,8 @@ assign ctrl_mod_id = ctrl_s_axis_tdata[112+:8];
 localparam	WAIT_FIRST_PKT = 0,
 			WAIT_SECOND_PKT = 1,
 			WAIT_THIRD_PKT = 2,
-			WRITE_RAM = 3;
+			WRITE_RAM = 3,
+			FLUSH_REST_C = 4;
 
 reg [2:0] ctrl_state, ctrl_state_next;
 
@@ -440,6 +441,11 @@ always @(*) begin
 				ctrl_state_next = WAIT_SECOND_PKT;
 			end
 		end
+		FLUSH_REST_C: begin
+			if(ctrl_s_axis_tvalid && ctrl_m_axis_tlast) begin
+				ctrl_state_next = WAIT_FIRST_PKT;
+			end
+		end
 		WAIT_SECOND_PKT: begin
 			// 2nd ctrl packet, we can check module ID
 			if (ctrl_s_axis_tvalid) begin
@@ -447,6 +453,9 @@ always @(*) begin
 					ctrl_state_next = WAIT_THIRD_PKT;
 
 					ctrl_wr_ram_addr_next = ctrl_s_axis_tdata[128+:8];
+				end
+				else begin
+					ctrl_state = FLUSH_REST_C;
 				end
 			end
 		end

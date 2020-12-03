@@ -264,7 +264,8 @@ reg                                 c_m_axis_tlast_r;
 localparam IDLE_C = 1,
            PARSE_C = 2,
            WRITE_OFF_C = 3,
-           WRITE_MASK_C = 4;
+           WRITE_MASK_C = 4,
+           FLUSH_REST_C = 5;
 
 generate 
     if(C_S_AXIS_DATA_WIDTH == 512) begin
@@ -565,9 +566,25 @@ generate
                         end
                     end
 
+                    FLUSH_REST_C: begin
+                        c_m_axis_tdata <= c_m_axis_tdata_r;
+                        c_m_axis_tuser <= c_m_axis_tuser_r;
+                        c_m_axis_tkeep <= c_m_axis_tkeep_r;
+                        c_m_axis_tvalid <= c_m_axis_tvalid_r;
+                        c_m_axis_tlast <= c_m_axis_tlast_r;
+
+                        c_m_axis_tdata_r <= c_s_axis_tdata;
+                        c_m_axis_tuser_r <= c_s_axis_tuser;
+                        c_m_axis_tkeep_r <= c_s_axis_tkeep;
+                        c_m_axis_tvalid_r <= c_s_axis_tvalid;
+                        c_m_axis_tlast_r <= c_s_axis_tlast;
+
+                        if(c_s_axis_tvalid && c_s_axis_tlast) c_state <= IDLE_C;
+                    end
+
                     PARSE_C: begin
                         // if(mod_id[7:3] == STAGE_ID && mod_id[2:0] == KEY_EX_ID && 
-                        //    control_flag == 16'hf2f1 && c_s_axis_tvalid) begin
+                        // control_flag == 16'hf2f1 && c_s_axis_tvalid) begin
                         if(mod_id[7:3] == STAGE_ID && mod_id[2:0] == KEY_EX_ID && c_s_axis_tvalid) begin
                             c_m_axis_tdata <= 0;
                             c_m_axis_tuser <= 0;
@@ -613,13 +630,10 @@ generate
                             c_m_axis_tkeep_r <= c_s_axis_tkeep;
                             c_m_axis_tvalid_r <= c_s_axis_tvalid;
                             c_m_axis_tlast_r <= c_s_axis_tlast;
+
+                            c_state <= FLUSH_REST_C;
                             
-                            if(c_s_axis_tvalid && c_s_axis_tlast) c_state <= IDLE_C;
-                            // else begin
-                            //     //c_state <= IDLE_C;
-                            //     c_m_axis_tvalid_r <= 1'b0;
-                            //     c_m_axis_tlast_r <= 1'b0;
-                            // end
+                            
                         end
 
                     end

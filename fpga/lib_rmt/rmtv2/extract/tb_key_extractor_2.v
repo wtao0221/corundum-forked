@@ -167,9 +167,17 @@ end
 //NOTE: 256b testcase
 integer i;
 initial begin
+
+    c_s_axis_tdata <= 0;
+    c_s_axis_tvalid <= 1'b0;
+    c_s_axis_tkeep <= 0;
+    c_s_axis_tuser <= 0;
+    c_s_axis_tlast <= 0;
+
     #(2*CYCLE);
     #(CYCLE/2);
-    for (i = 0; i<20; i=i+1) begin
+    
+    for (i = 0; i<1; i=i+1) begin
         //c_s_axis_tdata <= {128'b0, 4'b0000, 4'b0, 8'b1, 368'b0};
         c_s_axis_tdata <= {238'b0,18'hffff};
         c_s_axis_tvalid <= 1'b1;
@@ -196,6 +204,7 @@ initial begin
         
         //module id
         c_s_axis_tdata[112+:8] <= 8'b1;
+        //c_s_axis_tdata[112+:8] <= 8'b0;
         //control flag
         //table type
         c_s_axis_tdata[124+:4] <= 4'b1;
@@ -221,7 +230,7 @@ initial begin
         c_s_axis_tlast <= 1'b0;
         #(CYCLE)
 
-        c_s_axis_tdata <= 256'hffffffffffffffffffffffffffffffffffffffffffffff;
+        c_s_axis_tdata <= 256'hddddddddddddddddddddddddddddddddddddddddddddddd;
         c_s_axis_tvalid <= 1'b1;
         c_s_axis_tkeep <= 32'hffffffff;
         c_s_axis_tuser <= 128'b0;
@@ -243,6 +252,7 @@ initial begin
         c_s_axis_tlast <= 1'b0;
 
         //action table
+        
         #(3*CYCLE)
         c_s_axis_tdata <= {238'hfffffffffffffffffffff,18'hffff};
         c_s_axis_tvalid <= 1'b1;
